@@ -29,6 +29,27 @@ if [ "${SKIP_HDR:-0}" != 1 ]; then
   python3 -I "$REPO/scripts/add_hdr_boxes.py" hdr10_nobox.mp4 "$OUT/hdr10.mp4" "$MD" ${CLL/,/ }
 fi
 
+# Dolby Vision profile 8.1: the same HDR10 frames plus Dolby Vision RPUs (no re-encode), built from Netflix's
+# Dolby Vision XML for Sol Levante (CM v2.9, 6314 frames = the HDR10 master, CC BY 4.0). Needs dovi_tool
+# (github.com/quietvoid/dovi_tool, MIT). The TV decodes DV profiles 4, 5 and 8, not 7.
+if [ "${SKIP_DV:-0}" != 1 ]; then
+  DOVI=${DOVI_TOOL:-dovi_tool}
+  [ -s dv.xml ] || curl -sfo dv.xml "$B/vdm/sollevante_lp_16b_hdr_p3d65pq_dolbyvision29.xml"
+  "$DOVI" generate --xml dv.xml -o dv_full.bin
+  # Keep frames 1202-1929 (the clip) and put the measured MaxCLL/MaxFALL in L6 (the XML has 0/0).
+  cat > dv_edit.json <<JSON
+{"remove": ["0-$((1202 - 1))", "$((1202 + N))-6313"],
+ "level6": {"max_display_mastering_luminance": 1000, "min_display_mastering_luminance": 1,
+            "max_content_light_level": ${CLL%,*}, "max_frame_average_light_level": ${CLL#*,}}}
+JSON
+  "$DOVI" editor -i dv_full.bin -j dv_edit.json -o dv_clip.bin
+  ffmpeg -v error -y -i "$OUT/hdr10.mp4" -map 0:v:0 -c copy -bsf:v hevc_mp4toannexb -f hevc dv_bl.hevc
+  "$DOVI" inject-rpu -i dv_bl.hevc --rpu-in dv_clip.bin -o dv.hevc
+  ffmpeg -v error -y -r 24 -i dv.hevc -c copy -tag:v hvc1 -movflags +faststart dv_nobox.mp4
+  # dvvC (profile 8, HDR10-compatible, level 6 = UHD 24 fps) plus the same mdcv/clli as the HDR10 clip.
+  python3 -I "$REPO/scripts/add_hdr_boxes.py" dv_nobox.mp4 "$OUT/dolby_vision.mp4" "$MD" ${CLL/,/ } 8.1@6
+fi
+
 # SDR: one pass, quality target with a bitrate cap (no need for an exact size).
 SDRX="colorprim=bt709:transfer=bt709:colormatrix=bt709:range=limited:keyint=48:min-keyint=24:crf=22:vbv-maxrate=5000:vbv-bufsize=10000"
 ffmpeg -v error -y -i sdr_src.mov -an -map 0:v:0 -vf "scale=flags=lanczos,format=yuv420p" \

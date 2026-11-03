@@ -4,7 +4,9 @@
 ffmpeg/libx265 puts HDR10 metadata only in the HEVC bitstream (SEI). Players such as ExoPlayer also read
 the container boxes and pass them to the decoder, so we write the same values there.
 
-Usage: add_hdr_boxes.py in.mp4 out.mp4 "G(x,y)B(x,y)R(x,y)WP(x,y)L(max,min)" MaxCLL MaxFALL
+Usage: add_hdr_boxes.py in.mp4 out.mp4 "G(x,y)B(x,y)R(x,y)WP(x,y)L(max,min)" MaxCLL MaxFALL [DV]
+DV (optional), e.g. "8.1@6": also add the Dolby Vision configuration box (dvvC for profile 8+, dvcC below)
+for a single-layer stream with RPUs — profile 8, base-layer compatibility id 1 (HDR10), level 6 (UHD 24 fps).
 (the mastering string uses x265 units: 0.00002 for chromaticity, 0.0001 cd/m2 for luminance).
 The moov box must come before mdat (ffmpeg -movflags +faststart); chunk offsets are shifted to match.
 """
@@ -35,6 +37,14 @@ def main():
     mdcv = struct.pack(">I4s8HII", 32, b"mdcv", gx, gy, bx, by, rx, ry, wx, wy, lmax, lmin)
     clli = struct.pack(">I4sHH", 12, b"clli", cll, fall)
     extra = mdcv + clli
+    if len(sys.argv) > 6:
+        m = re.fullmatch(r"(\d+)\.(\d+)@(\d+)", sys.argv[6]) or sys.exit("DV must look like 8.1@6")
+        profile, compat, level = (int(g) for g in m.groups())
+        # DOVIDecoderConfigurationRecord: version 1.0; profile(7) level(6) rpu(1) el(1) bl(1);
+        # bl_signal_compatibility_id(4) + 28 reserved bits; 16 reserved bytes. 24 bytes.
+        flags = (profile << 9) | (level << 3) | (1 << 2) | (0 << 1) | 1
+        rec = struct.pack(">BBHI", 1, 0, flags, compat << 28) + bytes(16)
+        extra += struct.pack(">I4s", 8 + len(rec), b"dvvC" if profile > 7 else b"dvcC") + rec
 
     data = bytearray(open(src, "rb").read())
     top = list(boxes(data, 0, len(data)))
@@ -56,8 +66,8 @@ def main():
                 for eoff, esize, ekind in boxes(data, off + 16, off + size):
                     if ekind in (b"hvc1", b"hev1"):
                         inner = list(boxes(data, eoff + 8 + 78, eoff + esize))
-                        if any(k in (b"mdcv", b"clli") for _, _, k in inner):
-                            sys.exit("file already has mdcv/clli")
+                        if any(k in (b"mdcv", b"clli", b"dvcC", b"dvvC") for _, _, k in inner):
+                            sys.exit("file already has mdcv/clli/dovi boxes")
                         target = (eoff, esize, chain + [off])
 
     walk(moov[0], moov[0] + moov[1], [])
@@ -93,7 +103,7 @@ def main():
 
     shift(moov[0] + 8, moov[0] + moov_size)
     open(dst, "wb").write(data)
-    print(f"added mdcv+clli ({len(extra)} bytes) -> {dst}")
+    print(f"added HDR boxes ({len(extra)} bytes) -> {dst}")
 
 
 if __name__ == "__main__":
