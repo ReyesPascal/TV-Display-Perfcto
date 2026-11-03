@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
+
 package com.reyespascal.picturehelper.playback
 
 import androidx.media3.common.C

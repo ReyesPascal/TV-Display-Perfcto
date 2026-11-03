@@ -1,11 +1,21 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
+
 package com.reyespascal.picturehelper.playback
 
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -23,8 +33,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
@@ -32,6 +42,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -43,28 +54,45 @@ import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.reyespascal.picturehelper.PhLog
+import com.reyespascal.picturehelper.checklist.Scene
 import com.reyespascal.picturehelper.diagnostics.DeviceInfo
 import com.reyespascal.picturehelper.ui.SafeH
 import com.reyespascal.picturehelper.ui.SafeV
 
+/** GUIDE = full panel; COMPARE = one-line reminder only (after the TV menu opens, until OK); HIDDEN = nothing. */
+enum class OverlayPanel { GUIDE, COMPARE, DETAILS, HIDDEN }
+
+/** Actions the guide panel can trigger on the playback screen. */
+class OverlayActions(val showDetails: () -> Unit, val hide: () -> Unit)
+
 /**
- * Full-screen looping playback.
- * - The player exists only between onStart and onStop, so it keeps playing through onPause
- *   (for example when a TV menu opens on top) and is released when the screen is really left.
- * - Only OK (show/hide diagnostics) and Back (leave) are used. Every other key is passed on,
- *   so the TV's own Settings/Menu keys keep working.
+ * Full-screen looping playback with an overlay on the right (the Hisense menu covers the left).
+ * - The player exists only between onStart and onStop, so it keeps playing through onPause (the TV menu
+ *   only takes window focus) and is released when the screen is really left.
+ * - [scene] with a still time and [holding] = true seeks there and pauses, for before/after comparisons.
+ * - When the TV menu opens, the guide shrinks to a one-line [reminder] and stays small after the menu closes,
+ *   so the owner can keep flipping the setting and looking at the scene. OK brings the full guide back.
+ * - Only D-pad/OK (inside the panel) and Back are used; all other keys go to the TV.
  */
 @Composable
 fun PlaybackScreen(
     clip: ClipSource,
     lifecycleLog: List<String>,
+    scene: Scene,
+    holding: Boolean,
+    /** True while another window (the TV's picture menu) has focus over this screen. */
+    tvMenuOpen: Boolean,
+    /** One-line reminder shown while the TV menu is open, e.g. "Color Temperature → Low". */
+    reminder: String?,
+    guideFocus: FocusRequester,
+    guide: @Composable ColumnScope.(OverlayActions) -> Unit,
     onExit: () -> Unit,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
     var player by remember { mutableStateOf<ExoPlayer?>(null) }
     var info by remember { mutableStateOf(PlaybackInfo()) }
-    var showDiagnostics by remember { mutableStateOf(true) }
+    var panel by remember { mutableStateOf(OverlayPanel.GUIDE) }
 
     LifecycleStartEffect(clip.uri) {
         PhLog.i("player: create for ${clip.uri}")
@@ -76,7 +104,7 @@ fun PlaybackScreen(
                 override fun onPlaybackStateChanged(state: Int) {
                     val name = when (state) {
                         Player.STATE_IDLE -> "idle"; Player.STATE_BUFFERING -> "buffering"
-                        Player.STATE_READY -> "playing"; Player.STATE_ENDED -> "ended"; else -> "$state"
+                        Player.STATE_READY -> "ready"; Player.STATE_ENDED -> "ended"; else -> "$state"
                     }
                     PhLog.i("player: state $name")
                     info = info.copy(state = name)
@@ -103,7 +131,7 @@ fun PlaybackScreen(
                     info = info.copy(decoder = decoderName)
                 }
                 override fun onVideoInputFormatChanged(
-                    eventTime: AnalyticsListener.EventTime, format: androidx.media3.common.Format,
+                    eventTime: AnalyticsListener.EventTime, format: Format,
                     decoderReuseEvaluation: DecoderReuseEvaluation?,
                 ) {
                     PhLog.i("player: video format ${format.sourceSummary().replace('\n', ' ')}")
@@ -126,35 +154,60 @@ fun PlaybackScreen(
         }
     }
 
-    // Keep the TV awake while the setup video plays.
+    // Hold a still scene for comparing, or keep playing.
+    LaunchedEffect(player, scene, holding) {
+        val p = player ?: return@LaunchedEffect
+        val at = scene.positionMs
+        if (holding && at != null) {
+            PhLog.i("player: hold scene ${scene.name} at $at ms")
+            p.seekTo(at)
+            p.playWhenReady = false
+        } else {
+            PhLog.i("player: play (${scene.name})")
+            p.playWhenReady = true
+        }
+    }
+
+    // Keep the TV awake while the setup video is on screen, playing or held.
     DisposableEffect(Unit) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
     }
 
-    BackHandler { onExit() }
+    BackHandler {
+        when (panel) {
+            OverlayPanel.HIDDEN, OverlayPanel.DETAILS, OverlayPanel.COMPARE -> panel = OverlayPanel.GUIDE
+            OverlayPanel.GUIDE -> onExit()
+        }
+    }
 
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    // While the guide isn't shown, the screen itself holds focus; any D-pad or OK press brings it back.
+    val rootFocus = remember { FocusRequester() }
+    // The TV menu opening switches the full guide to compare mode.
+    LaunchedEffect(tvMenuOpen) {
+        if (tvMenuOpen && panel == OverlayPanel.GUIDE) panel = OverlayPanel.COMPARE
+    }
+    LaunchedEffect(panel, tvMenuOpen) {
+        if (tvMenuOpen) return@LaunchedEffect
+        runCatching { if (panel == OverlayPanel.GUIDE) guideFocus.requestFocus() else rootFocus.requestFocus() }
+    }
 
     Box(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .focusRequester(focus)
+            .focusRequester(rootFocus)
             .focusable()
             .onKeyEvent { e ->
                 val code = e.key.nativeKeyCode
-                val isOk = code == AndroidKeyEvent.KEYCODE_DPAD_CENTER || code == AndroidKeyEvent.KEYCODE_ENTER
-                if (isOk && e.type == KeyEventType.KeyUp) { showDiagnostics = !showDiagnostics; true }
-                else isOk // swallow OK key-down too; everything else goes to the system
+                // In compare mode only OK ends comparing; when hidden, any D-pad key or OK shows the guide.
+                val wakes = if (panel == OverlayPanel.COMPARE) code in OK_KEYS else code in NAV_KEYS
+                if (!wakes || panel == OverlayPanel.GUIDE) return@onKeyEvent false // other keys go to the TV
+                if (e.type == KeyEventType.KeyUp) panel = OverlayPanel.GUIDE
+                true
             },
     ) {
-        PlayerSurface(
-            player = player,
-            surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-            modifier = Modifier.fillMaxSize(),
-        )
+        PlayerSurface(player = player, surfaceType = SURFACE_TYPE_SURFACE_VIEW, modifier = Modifier.fillMaxSize())
 
         info.error?.let { err ->
             Panel(Modifier.align(Alignment.Center)) {
@@ -164,41 +217,79 @@ fun PlaybackScreen(
             }
         }
 
-        if (showDiagnostics && info.error == null) {
-            Panel(Modifier.align(Alignment.TopEnd).padding(end = SafeH, top = SafeV).widthIn(max = RightPanelMax)) {
-                val display = view.display
-                Text("Diagnostics  ·  OK hides this  ·  Back exits", fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.primary)
-                Line("Clip", "${clip.description} · ${info.state} · loops ${info.loops} · dropped ${info.droppedFrames}")
-                Line("Source (file)", info.format?.sourceSummary() ?: "waiting…")
-                Line("Decoder used", info.decoder ?: "waiting…")
-                Line("Display reports", "${DeviceInfo.displayHdrTypes(display)} · UI ${DeviceInfo.displayMode(display)}")
-                Line("HDR on the TV", "Needs confirmation: open the TV's picture menu and look for the HDR icon.")
-                Line("Recent events", lifecycleLog.takeLast(4).joinToString("\n"))
+        // What the overlay shows. The TV menu being open always means "reminder only" (unless hidden).
+        val shown = when {
+            info.error != null -> OverlayPanel.HIDDEN
+            tvMenuOpen && panel != OverlayPanel.HIDDEN -> OverlayPanel.COMPARE
+            else -> panel
+        }
+
+        // Full guide / details: fade and slide in from the right edge, like a tvOS side panel.
+        AnimatedVisibility(
+            visible = shown == OverlayPanel.GUIDE || shown == OverlayPanel.DETAILS,
+            enter = fadeIn(tween(250)) + slideInHorizontally(tween(250)) { it / 6 },
+            exit = fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { it / 6 },
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = SafeH, top = SafeV).widthIn(max = RightPanelMax),
+        ) {
+            Panel(Modifier) {
+                if (shown == OverlayPanel.DETAILS) {
+                    val display = view.display
+                    Text("Details  ·  Back returns to the guide", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
+                    Line("Clip", "${clip.description} · ${info.state} · loops ${info.loops} · dropped ${info.droppedFrames}")
+                    Line("Source (file)", info.format?.sourceSummary() ?: "waiting…")
+                    Line("Decoder used", info.decoder ?: "waiting…")
+                    Line("Display reports", "${DeviceInfo.displayHdrTypes(display)} · UI ${DeviceInfo.displayMode(display)}")
+                    Line("HDR on the TV", "Only the TV's menu can show this: HDR picture modes listed = HDR is on.")
+                    Line("Recent events", lifecycleLog.takeLast(4).joinToString("\n"))
+                } else {
+                    guide(OverlayActions(showDetails = { panel = OverlayPanel.DETAILS }, hide = { panel = OverlayPanel.HIDDEN }))
+                }
+            }
+        }
+
+        // Compare reminder: one quiet line at the bottom-right, clear of the TV menu and the scene.
+        AnimatedVisibility(
+            visible = shown == OverlayPanel.COMPARE && reminder != null,
+            enter = fadeIn(tween(250)),
+            exit = fadeOut(tween(200)),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = SafeH, bottom = SafeV),
+        ) {
+            Row(
+                Modifier.background(Color(0xD90E1014), RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(reminder ?: "", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                if (!tvMenuOpen) Text("   OK when done", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
+private val OK_KEYS = setOf(AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER)
+private val NAV_KEYS = OK_KEYS + setOf(
+    AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_DPAD_DOWN,
+    AndroidKeyEvent.KEYCODE_DPAD_LEFT, AndroidKeyEvent.KEYCODE_DPAD_RIGHT,
+)
+
 /**
  * The Hisense picture menu covers the left ~44% of the screen (418 of 960 dp, measured on the TV).
  * App overlays sit on the right, inside what's left after the safe margin, so the menu never hides them.
  */
-private val RightPanelMax = 440.dp
+val RightPanelMax = 440.dp
 
 @Composable
-private fun Panel(modifier: Modifier, content: @Composable () -> Unit) {
+fun Panel(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
             .widthIn(max = 560.dp)
-            .background(Color(0xCC0E1014), RoundedCornerShape(12.dp))
+            .background(Color(0xD90E1014), RoundedCornerShape(12.dp))
             .padding(16.dp),
-    ) { content() }
+        content = content,
+    )
 }
 
 @Composable
-private fun Line(label: String, value: String) {
-    Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 6.dp))
+fun Line(label: String, value: String) {
+    Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
     Text(value, fontSize = 15.sp, color = Color(0xFFF2F2F2))
 }
