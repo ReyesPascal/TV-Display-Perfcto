@@ -31,3 +31,6 @@ can be used, and walks through the RTINGS U6H settings. Full spec: [SPEC.md](SPE
 ## Confirmed device gotchas
 - Hisense adb: LAN `:5555` works when Tailscale is offline. The TV's IP can change.
 - The display reports no 24 Hz mode.
+- Picture menu = remote's square two-line button → Picture. It's a `com.android.tv.settings` overlay: the app only
+  loses window focus (no onPause) and HDR playback continues (verified M1).
+- `adb exec-out screencap -p` output is corrupted by vendor messages; use `screencap -p /data/local/tmp/x.png` + `adb pull`.

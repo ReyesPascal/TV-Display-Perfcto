@@ -36,7 +36,8 @@ Confirmed by the owner:
 - No backend, accounts, analytics, ads or subscriptions.
 - The repo is public. The owner doesn't mind, so keys, IPs and RTINGS images must never be committed.
 - Push to GitHub after each verified milestone.
-- An APK of about 50–120 MB (bundled 4K HDR clip) is acceptable.
+- An APK of about 50–120 MB (bundled 4K HDR clip) is acceptable. Later the owner asked to keep TV space use small,
+  so the target is about 50 MB total (the TV had 4.7 GB free on 2026-11-03).
 
 Assumptions **[validate]**:
 - The Hisense picture menu opens as an overlay (RTINGS screenshots show a left-side panel over live video).
@@ -170,18 +171,25 @@ confirmations, not settings checked by the app.
 
 ## 8. Test-asset source, license and validation
 
-Primary HDR10 source: **Netflix Open Content** (opencontent.netflix.com). The site states its content is under
-Creative Commons Attribution 4.0 International. Candidates with HDR10 (PQ, BT.2020, 1000-nit) masters: *Sparks*
-and *Sol Levante*. **[validate at M0]** per-title license file and download size.
+Chosen (M0, 2026-11-03): **"Sol Levante"** from **Netflix Open Content**, CC BY 4.0. The license file ships in the
+title's own folder. Only a 30.3 s segment of the masters is downloaded (frames 1202–1929, cut to cut, so the loop
+point is a normal scene cut). Details, attribution and validation: `app/src/main/assets/LICENSES.md`. Rebuild:
+`scripts/make-clips.sh <work dir>`.
 
-Clip target: 20–60 s, 3840x2160, HEVC Main10, `yuv420p10le`, BT.2020 primaries, SMPTE ST 2084 (PQ) transfer,
-mastering-display metadata and MaxCLL/MaxFALL from the source master, 59.94/60 or 50 fps (the TV's UI modes are
-60/50 Hz), about 50–120 MB. Encoded with ffmpeg/libx265 from the HDR10 master, without changing grading or tone mapping.
+Rejected: *Meridian* `Meridian_UHD4k5994_HDR_P3PQ.mp4`. It's 8-bit H.264 with no colour tags, so not genuine HDR10.
+*Sparks* HDR10 exists only as 53 MB-per-frame TIFFs (about 64 GB for 20 s).
+
+Clip: 3840x2160, HEVC Main10, `yuv420p10le`, BT.2020 primaries, SMPTE ST 2084 (PQ), mastering display from the
+title's VDM XML (P3-D65, 1000/0.0001 nits), MaxCLL/MaxFALL measured on the source (`scripts/hdr_light_levels.py`).
+24 fps like the master; frame rate not converted. On this TV's 60 Hz UI mode that means 3:2 cadence, which is fine
+for picture setup. The owner asked to keep TV storage use small: 2-pass 8 Mb/s, about 30 MB. Grading and tone
+mapping unchanged.
 
 Recorded in `assets/LICENSES.md`: title, author (Netflix), license and link, the changes made (trimmed and re-encoded),
 file size, the exact ffmpeg command, and the ffprobe summary.
 
-SDR clip: the same title's SDR deliverable if available, otherwise a Blender open movie (CC BY); BT.709, 8-bit, tags checked.
+SDR clip: the same 30.3 s segment from the title's SDR master (ProRes 422 HQ, BT.709), HEVC Main 8-bit, BT.709 tags,
+2-pass 4 Mb/s, about 15 MB.
 
 Not allowed: streaming-service footage, SDR relabelled as HDR, images passed off as HDR, claiming the clip is a
 calibration pattern, generated test patterns without validating them.
@@ -205,8 +213,15 @@ It works offline once copied. The app says clearly when no clip is present.
   `adb shell dumpsys window | grep mCurrentFocus`,
   `adb shell dumpsys SurfaceFlinger` (video layer dataspace, as supporting evidence only).
 
-Open device questions **[validate]**: picture-menu button and whether it's an overlay or a full activity; HDR held
-while the menu is open; HDR controls available for app video; blips at loop; whether 24p content gets a 24 Hz mode
+**M1 result on the TV (2026-11-03, debug build 0.1.0):** passed.
+- Remote button: the square button with two lines inside, then **Picture**. The picture menu is a window of
+  `com.android.tv.settings` drawn over the app as a left-side panel. The video stays visible and keeps moving.
+- Lifecycle while the menu is open: only `window focus lost` / `gained`. No onPause/onStop; playback never stopped.
+- The menu shows **Picture Mode: HDR Theater** (HDR modes) during our HDR10 playback. The owner didn't notice a
+  separate HDR icon; HDR modes appearing is taken as the physical confirmation.
+- Decoder `OMX.MS.HEVC.Decoder`; 8+ loops with no flash or brightness jump (owner); Back → `player: release`.
+
+Open device questions **[validate]**: whether 24p content gets a 24 Hz mode
 (not reported by the display).
 
 ## 10. Phased implementation tasks
