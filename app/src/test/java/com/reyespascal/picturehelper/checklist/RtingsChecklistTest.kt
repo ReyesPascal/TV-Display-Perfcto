@@ -30,7 +30,7 @@ class RtingsChecklistTest {
         assertEquals("Low", value("S11"))
         assertEquals("Auto", value("S16"))
         assertEquals("HDR Theater", value("H3"))
-        assertEquals("Low", value("H4"))
+        assertEquals("Warm1 or Warm2", value("H4"))
     }
 
     @Test fun hdrListDoesNotCarrySdrNumbers() {

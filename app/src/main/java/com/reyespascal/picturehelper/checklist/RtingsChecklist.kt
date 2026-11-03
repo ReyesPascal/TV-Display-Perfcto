@@ -56,9 +56,9 @@ object RtingsChecklist {
             "$MENU › Backlight › Backlight Level", true, "HDR",
         ),
         ChecklistItem(
-            "H4", "Color Temperature", "Low", Applies.HDR, Kind.REC,
-            "Low is the closest to the standard white point.",
-            "$MENU › Advanced Settings › Color Temperature", false, "HDR",
+            "H4", "Color Temperature", "Warm1 or Warm2", Applies.HDR, Kind.REC,
+            "RTINGS says \"Low\"; your TV calls its warm choices Warm1 and Warm2. Compare the two on the face and keep the one where white looks plain white, not blue or orange.",
+            "$MENU › Advanced Settings › Color Temperature", true, "HDR",
         ),
         ChecklistItem(
             "H5", "Everything else in HDR", "Leave as it is", Applies.HDR, Kind.DEFAULT,

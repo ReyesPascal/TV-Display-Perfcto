@@ -132,7 +132,8 @@ private fun ColumnScope.GuideItem(
                 Text(it.note, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 6.dp))
             }
             Text(
-                it.kind.label + "  ·  " + it.where.substringAfter("Picture › ", it.where) +
+                (if (it.kind == Kind.DEFAULT) "" else it.kind.label + "  ·  ") +
+                    "Where: " + it.where.substringAfter("Square two-line button › ", it.where) +
                     if (it.whereConfirmed) "" else " (not yet checked on your TV)",
                 fontSize = 13.sp, color = Muted, modifier = Modifier.padding(top = 6.dp),
             )
@@ -140,9 +141,16 @@ private fun ColumnScope.GuideItem(
     }
 
     // Scene for before/after: one button cycles scenes, one holds or plays.
+    val nothingToChange = item.kind == Kind.AUTO || item.kind == Kind.DEFAULT
     Text(
-        if (scene.positionMs != null && holding) "Held on ${scene.shows}. Flip the setting in the TV menu to compare."
-        else "Playing. Pick a scene to hold a still picture.",
+        when {
+            nothingToChange -> "Nothing to change here. Press Applied (or Skip) to move on."
+            scene.positionMs != null && holding ->
+                "The picture is frozen on ${scene.shows}. To compare: open the TV menu, go to this setting, " +
+                    "pick one choice with OK and look at the picture, then pick the other and look again. " +
+                    "The picture changes behind the menu straight away."
+            else -> "Playing. Choose a scene to freeze the picture while you compare."
+        },
         fontSize = 13.sp, color = Muted, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
