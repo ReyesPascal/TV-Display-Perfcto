@@ -28,8 +28,10 @@ class ProgressStoreTest {
         val store = newStore()
         store.mark(SetupMode.HDR, "M1", Mark.APPLIED)
         store.mark(SetupMode.SDR, "M1", Mark.SKIPPED)
+        store.mark(SetupMode.DV, "M1", Mark.NOT_FOUND)
         assertEquals(Mark.APPLIED, store.progress(SetupMode.HDR).first().marks["M1"])
         assertEquals(Mark.SKIPPED, store.progress(SetupMode.SDR).first().marks["M1"])
+        assertEquals(Mark.NOT_FOUND, store.progress(SetupMode.DV).first().marks["M1"])
     }
 
     @Test fun resetClearsOnlyThatMode() = runTest {
@@ -37,11 +39,16 @@ class ProgressStoreTest {
         store.mark(SetupMode.HDR, "H3", Mark.APPLIED)
         store.setPosition(SetupMode.HDR, 2)
         store.mark(SetupMode.SDR, "S5", Mark.NOT_FOUND)
+        store.mark(SetupMode.DV, "D1", Mark.APPLIED)
+        store.setPosition(SetupMode.DV, 3)
         store.reset(SetupMode.HDR)
         val hdr = store.progress(SetupMode.HDR).first()
         assertNull(hdr.marks["H3"])
         assertEquals(0, hdr.position)
         assertEquals(Mark.NOT_FOUND, store.progress(SetupMode.SDR).first().marks["S5"])
+        val dv = store.progress(SetupMode.DV).first()
+        assertEquals(Mark.APPLIED, dv.marks["D1"])
+        assertEquals(3, dv.position)
     }
 
     @Test fun clearingAMarkAndCounting() = runTest {

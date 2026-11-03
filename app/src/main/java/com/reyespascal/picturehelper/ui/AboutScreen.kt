@@ -39,7 +39,8 @@ fun AboutScreen() {
             Body(
                 "Short excerpts of \"Sol Levante\" © Netflix, Inc., from Netflix Open Content, used under the " +
                     "Creative Commons Attribution 4.0 license (creativecommons.org/licenses/by/4.0). Trimmed, audio " +
-                    "removed and re-encoded for TV playback; grading unchanged. They are viewing content, not " +
+                    "removed and re-encoded for TV playback; grading unchanged. The Dolby Vision clip adds Dolby Vision " +
+                    "metadata from Netflix's Dolby Vision file for Sol Levante under the same license. They are viewing content, not " +
                     "calibration test patterns.",
             )
             Body("What this app does", size = 20.sp, color = androidx.tv.material3.MaterialTheme.colorScheme.primary)

@@ -1,7 +1,16 @@
 package com.reyespascal.picturehelper.checklist
 
-/** Which setup workflow an item belongs to. BOTH items appear in each list, with progress saved per list. */
-enum class Applies { SDR, HDR, BOTH }
+enum class SetupMode { SDR, HDR, DV }
+
+/** Which setup workflows an item belongs to; progress is saved per mode. */
+enum class Applies(val modes: Set<SetupMode>) {
+    SDR(setOf(SetupMode.SDR)),
+    HDR(setOf(SetupMode.HDR)),
+    DV(setOf(SetupMode.DV)),
+    /** SDR and HDR10 only: greyed out or different in Dolby Vision. */
+    BOTH(setOf(SetupMode.SDR, SetupMode.HDR)),
+    ALL(SetupMode.entries.toSet()),
+}
 
 /** Who the value comes from. Shown on every step so suggestions aren't mistaken for measurements. */
 enum class Source(val label: String) {
@@ -27,10 +36,9 @@ data class ChecklistItem(
     val where: String,
 )
 
-enum class SetupMode { SDR, HDR }
-
 /**
- * Every setting in the Hisense 65U6H Picture menu (firmware read 2026-11-03), for HDR10 and SDR.
+ * Every setting in the Hisense 65U6H Picture menu (firmware read 2026-11-03), for SDR, HDR10 and Dolby Vision.
+ * Motion Clearness, Low Blue Light and Gamma are greyed out in Dolby Vision, so they aren't in that list.
  * Values come from RTINGS' U6H settings page, backed or filled in by other reviews; wording is ours.
  * Deliberately excluded: white-balance / colour calibration numbers (specific to one measured unit).
  * Order: Picture Mode first (the TV keeps settings per mode), then menu order; quick checks last.
@@ -48,10 +56,11 @@ object RtingsChecklist {
         "Digital Trends — Hisense U8K settings",
         "PCMag and T3 — Hisense U-series reviews",
         "Sound & Vision — Hisense 65H8G review (gamma)",
+        "Dolby Vision: RTINGS U6N/U7N (Dolby Vision Dark most accurate), AVForums U7K/U8K, Dolby professional support, Spears & Munsil setup guide",
     )
 
     /** Bump when ids or order change, so a saved position from an older list isn't reused. */
-    const val LIST_VERSION = 2
+    const val LIST_VERSION = 3
 
     private const val P = "Picture"
     private const val ADV = "$P › Advanced Settings"
@@ -69,6 +78,31 @@ object RtingsChecklist {
             "S1", "Picture Mode", "Theater Night", Applies.SDR, Source.RTINGS, "RTINGS U6H", false,
             "The most accurate preset. Set it first: the TV remembers the other settings per mode.",
             "$P › Picture Mode",
+        ),
+        ChecklistItem(
+            "D1", "Picture Mode", "Dolby Vision Dark", Applies.DV, Source.REVIEWERS, "RTINGS U6N/U7N · Dolby", false,
+            "The most accurate Dolby Vision mode on Hisense's newer sets. In a bright room use Dolby Vision IQ instead: it brightens the picture to match room light. If Dark looks too dim to you, IQ is fine too.",
+            "$P › Picture Mode",
+        ),
+        ChecklistItem(
+            "D2", "Backlight Level", "100", Applies.DV, Source.REVIEWERS, "Spears & Munsil", true,
+            "Dolby Vision expects full backlight. Just check it.",
+            "$BL › Backlight Level",
+        ),
+        ChecklistItem(
+            "D3", "Contrast", "50", Applies.DV, Source.REVIEWERS, "Spears & Munsil", true,
+            "Dolby Vision's tone mapping assumes the default. Don't copy the SDR value (39).",
+            "$P › Contrast",
+        ),
+        ChecklistItem(
+            "D4", "Sharpness", "0", Applies.DV, Source.RTINGS, "RTINGS U6H (HDR, SDR)", false,
+            "0 adds no artificial edges.",
+            "$P › Sharpness",
+        ),
+        ChecklistItem(
+            "D5", "Color Temperature", "Leave the mode's own", Applies.DV, Source.REVIEWERS, "Dolby", true,
+            "Dolby Vision modes are set up for standard white already. Just check it shows a Warm choice; nobody has measured Warm1 against Warm2 on this TV in Dolby Vision.",
+            "$ADV › Color Temperature",
         ),
         ChecklistItem(
             "H2", "Backlight Level", "Max", Applies.HDR, Source.RTINGS, "RTINGS U6H", true,
@@ -113,7 +147,7 @@ object RtingsChecklist {
             "$ADV › Color Temperature",
         ),
         ChecklistItem(
-            "M1", "Motion Enhancement", "Off", Applies.BOTH, Source.RTINGS, "RTINGS · Reviewed", false,
+            "M1", "Motion Enhancement", "Off", Applies.ALL, Source.RTINGS, "RTINGS · Reviewed", false,
             "Keeps films looking like films. If camera pans stutter, try Film.",
             "$ADV › Motion Enhancement",
         ),
@@ -123,17 +157,17 @@ object RtingsChecklist {
             "$ADV › Motion Clearness",
         ),
         ChecklistItem(
-            "M3", "Noise Reduction", "Off", Applies.BOTH, Source.RTINGS, "RTINGS · Reviewed", false,
+            "M3", "Noise Reduction", "Off", Applies.ALL, Source.RTINGS, "RTINGS · Reviewed", false,
             "Smears fine detail in good video. Low only for a bad, noisy stream.",
             "$ADV › Noise Reduction",
         ),
         ChecklistItem(
-            "M4", "Digital Noise Reduction", "Off", Applies.BOTH, Source.RTINGS, "RTINGS · Reviewed", false,
+            "M4", "Digital Noise Reduction", "Off", Applies.ALL, Source.RTINGS, "RTINGS · Reviewed", false,
             "Same reason as Noise Reduction. Low only for a blocky stream.",
             "$ADV › Digital Noise Reduction",
         ),
         ChecklistItem(
-            "M5", "FILMMAKER MODE Auto Detection", "Off", Applies.BOTH, Source.OURS, "", false,
+            "M5", "FILMMAKER MODE Auto Detection", "Off", Applies.ALL, Source.OURS, "", false,
             "When On, the TV can switch to FILMMAKER MODE by itself and replace the mode you just set up.",
             "$ADV › FILMMAKER MODE Auto Detection",
         ),
@@ -150,41 +184,41 @@ object RtingsChecklist {
         ),
         // ---- Quick checks: usually already right ----
         ChecklistItem(
-            "Q1", "Local Dimming", "High", Applies.BOTH, Source.RTINGS, "RTINGS U6H settings photo", true,
+            "Q1", "Local Dimming", "High", Applies.ALL, Source.RTINGS, "RTINGS U6H settings photo", true,
             "Deepest blacks.", "$BL › Local Dimming",
         ),
         ChecklistItem(
-            "Q2", "Automatic Light Sensor", "Off", Applies.BOTH, Source.RTINGS, "RTINGS U6H settings photo", true,
-            "Keeps brightness steady instead of following room light.", "$BL › Automatic Light Sensor",
+            "Q2", "Automatic Light Sensor", "Off", Applies.ALL, Source.RTINGS, "RTINGS U6H settings photo", true,
+            "Keeps brightness steady instead of following room light. (Dolby Vision IQ uses the sensor on purpose.)", "$BL › Automatic Light Sensor",
         ),
         ChecklistItem(
-            "Q4", "Brightness", "50", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true,
+            "Q4", "Brightness", "50", Applies.ALL, Source.RTINGS, "RTINGS U6H", true,
             "Not the same as Backlight: this sets the black level.", "$P › Brightness",
         ),
         ChecklistItem(
-            "Q5", "Color", "50", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true, "", "$P › Color",
+            "Q5", "Color", "50", Applies.ALL, Source.RTINGS, "RTINGS U6H", true, "", "$P › Color",
         ),
         ChecklistItem(
-            "Q6", "Tint", "0", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true, "", "$P › Tint",
+            "Q6", "Tint", "0", Applies.ALL, Source.RTINGS, "RTINGS U6H", true, "", "$P › Tint",
         ),
         ChecklistItem(
-            "G2", "Apply Picture Settings", "Your choice", Applies.BOTH, Source.YOURS, "RTINGS photo: All Sources", true,
+            "G2", "Apply Picture Settings", "Your choice", Applies.ALL, Source.YOURS, "RTINGS photo: All Sources", true,
             "Decides whether your changes also reach the HDMI inputs.", "$P › Apply Picture Settings",
         ),
         ChecklistItem(
-            "Q3", "Smart Scene", "Off", Applies.BOTH, Source.OURS, "", true,
+            "Q3", "Smart Scene", "Off", Applies.ALL, Source.OURS, "", true,
             "When On, the TV adjusts the picture for each scene on its own.", "$P › Smart Scene",
         ),
         ChecklistItem(
-            "Q7", "Active Contrast", "Off", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true,
+            "Q7", "Active Contrast", "Off", Applies.ALL, Source.RTINGS, "RTINGS U6H", true,
             "Can crush dark detail.", "$ADV › Active Contrast",
         ),
         ChecklistItem(
-            "Q8", "Color Space", "Auto", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true,
+            "Q8", "Color Space", "Auto", Applies.ALL, Source.RTINGS, "RTINGS U6H", true,
             "Stops colours looking oversaturated.", "$ADV › Color Space",
         ),
         ChecklistItem(
-            "Q10", "Instant Game Response", "On", Applies.BOTH, Source.OURS, "", true,
+            "Q10", "Instant Game Response", "On", Applies.ALL, Source.OURS, "", true,
             "Only acts when a game console asks for it; films are unaffected.", "$ADV › Instant Game Response",
         ),
         ChecklistItem(
@@ -192,16 +226,14 @@ object RtingsChecklist {
             "On tints the whole picture yellow.", "$ADV › Low Blue Light",
         ),
         ChecklistItem(
-            "Q12", "Calibration Settings", "Leave at 0", Applies.BOTH, Source.OURS, "", true,
+            "Q12", "Calibration Settings", "Leave at 0", Applies.ALL, Source.OURS, "", true,
             "Color Tuner and the other adjustments here fine-tune one measured TV. Leave them at 0.",
             "$CAL",
         ),
     )
 
     /** Changes first, then quick checks; each part keeps menu order. */
-    fun forMode(mode: SetupMode): List<ChecklistItem> = all.filter {
-        it.applies == Applies.BOTH || it.applies.name == mode.name
-    }.sortedBy { it.check }
+    fun forMode(mode: SetupMode): List<ChecklistItem> = all.filter { mode in it.applies.modes }.sortedBy { it.check }
 
     /** RTINGS' informational note that isn't a setting to change. Shown in About. */
     const val JUDDER_NOTE =

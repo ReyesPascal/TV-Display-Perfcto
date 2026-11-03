@@ -1,6 +1,6 @@
 # Bundled clips: source, license and encoding
 
-Both clips are short excerpts of **"Sol Levante"** (2020), produced by Netflix and Production I.G.
+All three clips are short excerpts of **"Sol Levante"** (2020), produced by Netflix and Production I.G.
 Source: Netflix Open Content, https://opencontent.netflix.com/
 License: **Creative Commons Attribution 4.0 International** (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/
 (license text shipped by Netflix at `SolLevante/creative-commons-attribution-4-intl-public-license.txt`).
@@ -23,6 +23,16 @@ test patterns.
 | Encode | HEVC Main 10, 3840x2160, 24 fps, yuv420p10le, BT.2020 / SMPTE ST 2084 / BT.2020nc, limited range, HDR10 SEI on every keyframe, 2-pass 8 Mb/s |
 | Command | `scripts/make-clips.sh` |
 | Size / check | see "Validation" below |
+
+## clips/dolby_vision.mp4
+
+| | |
+|---|---|
+| Frames | Same encoded Sol Levante frames as `clips/hdr10.mp4`, not re-encoded |
+| Dolby Vision metadata | Profile 8.1 RPUs generated with dovi_tool 2.3.4 (MIT) from `SolLevante/vdm/sollevante_lp_16b_hdr_p3d65pq_dolbyvision29.xml` (CM v2.9, CC BY 4.0), trimmed to frames 1202–1929 |
+| L6 MaxCLL / MaxFALL | 1429 / 611 nits |
+| dvvC box | Profile 8, level 6, BL compatibility 1 (HDR10) |
+| Command | `scripts/make-clips.sh` |
 
 ## clips/sdr.mp4
 

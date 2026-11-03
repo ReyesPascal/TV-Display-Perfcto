@@ -15,7 +15,7 @@ data class Progress(val marks: Map<String, Mark>, val position: Int) {
     fun count(mark: Mark) = marks.values.count { it == mark }
 }
 
-/** Checklist progress, kept separately for the SDR and HDR workflows. */
+/** Checklist progress, kept separately for each setup mode. */
 class ProgressStore(private val store: DataStore<Preferences>) {
 
     private fun markKey(mode: SetupMode, id: String) = stringPreferencesKey("${mode.name}:mark:$id")

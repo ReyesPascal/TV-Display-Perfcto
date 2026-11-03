@@ -1,7 +1,7 @@
 package com.reyespascal.picturehelper.checklist
 
 /**
- * Still frames from the 30.3 s setup clip (the HDR10 and SDR clips are the same frames), each chosen to
+ * Still frames from the 30.3 s setup clip (all three modes use the same frames), each chosen to
  * make a group of settings easy to judge. Times are the middle of a shot, so holding there shows one clean image.
  */
 enum class Scene(val label: String, val positionMs: Long?, val shows: String) {
@@ -23,6 +23,8 @@ object SceneFor {
         "Q5" to Scene.COLOUR, "Q6" to Scene.FACE, "G2" to Scene.MOVING, "Q3" to Scene.MOVING,
         "Q7" to Scene.SHADOWS, "Q8" to Scene.COLOUR, "Q10" to Scene.MOVING, "Q9" to Scene.FACE,
         "Q12" to Scene.FACE,
+        "D1" to Scene.FACE, "D2" to Scene.SKY, "D3" to Scene.SHADOWS, "D4" to Scene.DETAIL,
+        "D5" to Scene.FACE,
     )
 
     fun item(id: String): Scene = map[id] ?: Scene.MOVING

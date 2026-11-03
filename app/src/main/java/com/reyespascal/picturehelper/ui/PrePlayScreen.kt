@@ -11,13 +11,13 @@ import com.reyespascal.picturehelper.playback.ClipSource
 
 @Composable
 fun PrePlayScreen(mode: SetupMode, clip: ClipSource?, remembered: Int, onFocus: (Int) -> Unit, onStart: () -> Unit, onBack: () -> Unit) {
-    val title = if (mode == SetupMode.HDR) "HDR10 setup" else "SDR setup"
-    Page(title) {
+    Page("${mode.title} setup") {
         Body(
-            if (mode == SetupMode.HDR)
-                "This plays an HDR10 video on a loop. While it plays, the TV shows its HDR picture settings."
-            else
-                "This plays a normal (SDR) video on a loop, so you can set the TV's everyday picture settings.",
+            when (mode) {
+                SetupMode.HDR -> "This plays an HDR10 video on a loop. While it plays, the TV shows its HDR picture settings."
+                SetupMode.DV -> "This plays a Dolby Vision video on a loop. While it plays, the TV shows its Dolby Vision picture settings."
+                SetupMode.SDR -> "This plays a normal (SDR) video on a loop, so you can set the TV's everyday picture settings."
+            },
             size = 20.sp, color = MaterialTheme.colorScheme.onBackground,
         )
         Body("How to change a setting while the video plays:", size = 20.sp, color = MaterialTheme.colorScheme.primary,

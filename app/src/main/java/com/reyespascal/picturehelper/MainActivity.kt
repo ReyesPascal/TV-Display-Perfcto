@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
         val clips = mapOf(
             SetupMode.HDR to Clips.find(this, ClipMode.HDR10),
             SetupMode.SDR to Clips.find(this, ClipMode.SDR),
+            SetupMode.DV to Clips.find(this, ClipMode.DV),
         )
         PhLog.i("clips: ${clips.mapValues { it.value?.uri }}")
 
@@ -80,20 +81,23 @@ class MainActivity : ComponentActivity() {
                     val focusMemory = remember { mutableStateMapOf<String, Int>() }
                     val scope = rememberCoroutineScope()
 
-                    val hdr by store.progress(SetupMode.HDR).collectAsState(initial = Progress(emptyMap(), 0))
-                    val sdr by store.progress(SetupMode.SDR).collectAsState(initial = Progress(emptyMap(), 0))
-                    fun progressOf(m: SetupMode) = if (m == SetupMode.HDR) hdr else sdr
+                    val progress = SetupMode.entries.associateWith { mode ->
+                        remember(mode) { store.progress(mode) }.collectAsState(initial = Progress(emptyMap(), 0)).value
+                    }
+                    fun progressOf(m: SetupMode) = progress.getValue(m)
 
                     val route = stack.last()
                     if (route != "home") BackHandler(enabled = !route.startsWith("play/")) { back() }
                     when {
                         route == "home" -> HomeScreen(
                             remembered = focusMemory["home"] ?: 0, onFocus = { focusMemory["home"] = it },
-                            hdrSummary = hdr.summary(RtingsChecklist.forMode(SetupMode.HDR).size),
-                            sdrSummary = sdr.summary(RtingsChecklist.forMode(SetupMode.SDR).size),
+                            hdrSummary = progressOf(SetupMode.HDR).summary(RtingsChecklist.forMode(SetupMode.HDR).size),
+                            dvSummary = progressOf(SetupMode.DV).summary(RtingsChecklist.forMode(SetupMode.DV).size),
+                            sdrSummary = progressOf(SetupMode.SDR).summary(RtingsChecklist.forMode(SetupMode.SDR).size),
                         ) { choice ->
                             when (choice) {
                                 HomeChoice.HDR -> open("pre/HDR")
+                                HomeChoice.DV -> open("pre/DV")
                                 HomeChoice.SDR -> open("pre/SDR")
                                 HomeChoice.PROGRESS -> open("progress")
                                 HomeChoice.DIAGNOSTICS -> open("diag")

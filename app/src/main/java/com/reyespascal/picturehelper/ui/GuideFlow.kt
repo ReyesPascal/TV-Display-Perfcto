@@ -186,6 +186,9 @@ private fun ColumnScope.MenuCard(
     if (mode == SetupMode.HDR) {
         Text("HDR is on if Picture Mode starts with \u201cHDR\u201d.", fontSize = 13.sp, color = Muted)
     }
+    if (mode == SetupMode.DV) {
+        Text("Dolby Vision is on if Picture Mode starts with \u201cDolby Vision\u201d.", fontSize = 13.sp, color = Muted)
+    }
     if (rows.isEmpty()) {
         Text("Everything is marked. Close the menu to see the summary.", fontSize = 15.sp,
             color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 8.dp))
@@ -254,4 +257,8 @@ private fun ColumnScope.Summary(
     }
 }
 
-val SetupMode.title: String get() = if (this == SetupMode.HDR) "HDR10" else "SDR"
+val SetupMode.title: String get() = when (this) {
+    SetupMode.SDR -> "SDR"
+    SetupMode.HDR -> "HDR10"
+    SetupMode.DV -> "Dolby Vision"
+}

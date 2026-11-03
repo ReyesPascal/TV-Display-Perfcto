@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import java.io.File
 
-enum class ClipMode(val fileName: String) { HDR10("hdr10.mp4"), SDR("sdr.mp4") }
+enum class ClipMode(val fileName: String) { HDR10("hdr10.mp4"), SDR("sdr.mp4"), DV("dolby_vision.mp4") }
 
 /**
  * Where a clip comes from. A file the owner copied to the app's own folder

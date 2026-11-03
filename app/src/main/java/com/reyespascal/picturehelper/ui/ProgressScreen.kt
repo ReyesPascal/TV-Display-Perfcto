@@ -46,12 +46,13 @@ fun ProgressScreen(progress: (SetupMode) -> Progress, onReset: (SetupMode) -> Un
 
     Page("Saved progress") {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TvButton("HDR10", { mode = SetupMode.HDR }, focusRequester = firstFocus)
-            TvButton("SDR", { mode = SetupMode.SDR })
-            TvButton("Reset ${if (mode == SetupMode.HDR) "HDR10" else "SDR"} checklist", { confirmReset = true })
+            SetupMode.entries.forEachIndexed { index, choice ->
+                TvButton(choice.title, { mode = choice }, focusRequester = if (index == 0) firstFocus else null)
+            }
+            TvButton("Reset ${mode.title} checklist", { confirmReset = true })
         }
         Body(
-            "${if (mode == SetupMode.HDR) "HDR10" else "SDR"}: ${p.count(Mark.APPLIED)} applied · " +
+            "${mode.title}: ${p.count(Mark.APPLIED)} applied · " +
                 "${p.count(Mark.SKIPPED)} skipped · ${p.count(Mark.NOT_FOUND)} not found · " +
                 "${items.size - p.marks.size} not done",
             color = MaterialTheme.colorScheme.onBackground,
@@ -63,7 +64,7 @@ fun ProgressScreen(progress: (SetupMode) -> Progress, onReset: (SetupMode) -> Un
     if (confirmReset) {
         ConfirmDialog(
             title = "Reset checklist?",
-            message = "This clears Picture Helper's ${if (mode == SetupMode.HDR) "HDR10" else "SDR"} checklist only. " +
+            message = "This clears Picture Helper's ${mode.title} checklist only. " +
                 "Your TV's picture settings stay exactly as they are.",
             confirm = "Reset",
             onConfirm = { onReset(mode); confirmReset = false },

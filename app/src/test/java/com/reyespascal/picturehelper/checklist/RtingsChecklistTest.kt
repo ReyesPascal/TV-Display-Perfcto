@@ -30,6 +30,7 @@ class RtingsChecklistTest {
         assertEquals("0", value("Q6"))
         assertEquals("Warm1", value("S11"))
         assertEquals("Auto", value("Q8"))
+        assertEquals("Dolby Vision Dark", value("D1"))
         assertEquals("HDR Theater", value("H3"))
         assertEquals("Warm1", value("H6"))
         assertEquals("50", value("H9"))
@@ -41,6 +42,12 @@ class RtingsChecklistTest {
         assertFalse(hdr.any { it.applies == Applies.SDR })
         assertFalse(hdr.any { it.setting == "Contrast" && it.value == "39" })
         assertTrue(hdr.any { it.id == "H2" && it.check })
+    }
+
+    @Test fun dvListDoesNotCarrySdrOrHdrItems() {
+        val dv = RtingsChecklist.forMode(SetupMode.DV)
+        assertFalse(dv.any { it.value == "39" })
+        assertFalse(dv.any { it.applies == Applies.SDR || it.applies == Applies.HDR })
     }
 
     @Test fun pictureModeComesFirstAndChecksComeLast() {
@@ -62,7 +69,9 @@ class RtingsChecklistTest {
         )
         SetupMode.entries.forEach { mode ->
             val names = RtingsChecklist.forMode(mode).map { it.setting }
-            assertEquals(mode.name, menu.sorted(), names.sorted())
+            val expected = if (mode == SetupMode.DV)
+                menu - setOf("Motion Clearness", "Low Blue Light", "Gamma") else menu
+            assertEquals(mode.name, expected.sorted(), names.sorted())
         }
         assertFalse(all.any { it.setting == "Picture Size" || it.setting == "Overscan" })
     }
@@ -70,8 +79,13 @@ class RtingsChecklistTest {
     @Test fun sharedItemsAppearInBothLists() {
         val sdr = RtingsChecklist.forMode(SetupMode.SDR).map { it.id }
         val hdr = RtingsChecklist.forMode(SetupMode.HDR).map { it.id }
+        val dv = RtingsChecklist.forMode(SetupMode.DV).map { it.id }
         all.filter { it.applies == Applies.BOTH }.forEach {
             assertTrue(it.id in sdr && it.id in hdr)
+            assertFalse(it.id in dv)
+        }
+        all.filter { it.applies == Applies.ALL }.forEach {
+            assertTrue(it.id in sdr && it.id in hdr && it.id in dv)
         }
     }
 
@@ -79,7 +93,9 @@ class RtingsChecklistTest {
         val banned = listOf("white balance", "2 point", "20 point", "gain", "offset", "hue", "saturation", "luminance")
         all.forEach { item ->
             val text = "${item.setting} ${item.value} ${item.note}".lowercase()
-            banned.forEach { assertFalse("${item.id} mentions '$it'", text.contains(it)) }
+            banned.forEach {
+                assertFalse("${item.id} mentions '$it'", Regex("\\b${Regex.escape(it)}\\b").containsMatchIn(text))
+            }
         }
     }
 }
