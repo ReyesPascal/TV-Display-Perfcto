@@ -165,7 +165,7 @@ fun PlaybackScreen(
         }
 
         if (showDiagnostics && info.error == null) {
-            Panel(Modifier.align(Alignment.TopStart).padding(start = SafeH, top = SafeV)) {
+            Panel(Modifier.align(Alignment.TopEnd).padding(end = SafeH, top = SafeV).widthIn(max = RightPanelMax)) {
                 val display = view.display
                 Text("Diagnostics  ·  OK hides this  ·  Back exits", fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.primary)
@@ -179,6 +179,12 @@ fun PlaybackScreen(
         }
     }
 }
+
+/**
+ * The Hisense picture menu covers the left ~44% of the screen (418 of 960 dp, measured on the TV).
+ * App overlays sit on the right, inside what's left after the safe margin, so the menu never hides them.
+ */
+private val RightPanelMax = 440.dp
 
 @Composable
 private fun Panel(modifier: Modifier, content: @Composable () -> Unit) {

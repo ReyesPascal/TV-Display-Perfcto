@@ -84,7 +84,8 @@ Before playback: says which mode will play, that settings are changed by hand in
 open that menu (filled in once the remote button is confirmed). It also says the steps set the picture for
 this app's playback, and other apps or inputs may need checking separately.
 
-During playback: one checklist item at a time (setting name, recommended value, one-line reason), with
+During playback: all app panels sit on the **right side** (max 440 dp wide), because the Hisense picture
+menu covers the left ~44% of the screen (measured in M1). One checklist item at a time (setting name, recommended value, one-line reason), with
 Applied / Skipped / Not found / Previous / Next. If the guide can't stay visible while the native menu is open,
 the flow is: read one item, open the TV menu, change it, close the menu, mark it.
 
