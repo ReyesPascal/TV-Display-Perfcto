@@ -80,7 +80,7 @@ fun GuideFlow(
         scene = scene,
         holding = holding,
         tvMenuOpen = tvMenuOpen,
-        reminder = item?.let { "${it.setting} → ${it.value}" },
+        menuCard = item?.let { { MenuCard(mode, position, items.size, it) } },
         guideFocus = focus,
         guide = { actions ->
             if (item == null) {
@@ -159,6 +159,32 @@ private fun ColumnScope.GuideItem(
         TvButton("Hide", actions.hide, fontSize = 13.sp)
         TvButton("Details", actions.showDetails, fontSize = 13.sp)
     }
+}
+
+/** Shown on the right while the TV menu is open: the setting, the value, where it is and how to move. */
+@Composable
+private fun ColumnScope.MenuCard(
+    mode: SetupMode, position: Int, total: Int, item: com.reyespascal.picturehelper.checklist.ChecklistItem,
+) {
+    Text("${mode.title}  ·  ${position + 1} of $total", fontSize = 13.sp, color = Muted)
+    Text(item.setting, fontSize = 22.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = 6.dp))
+    Text(item.value, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+    if (item.note.isNotBlank()) {
+        Text(item.note, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 6.dp))
+    }
+    Text("Where", fontSize = 13.sp, color = Muted, modifier = Modifier.padding(top = 10.dp))
+    Text(
+        item.where.substringAfter("Square two-line button › ", item.where) +
+            if (item.whereConfirmed) "" else "  (not yet checked on your TV)",
+        fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface,
+    )
+    Text(
+        "Up/Down: move  ·  OK: open or pick  ·  Left/Right: change a number  ·  Back: up a level or close",
+        fontSize = 13.sp, color = Muted, modifier = Modifier.padding(top = 10.dp),
+    )
+    Text("Close the menu when done; the guide comes back to mark it.", fontSize = 13.sp, color = Muted,
+        modifier = Modifier.padding(top = 4.dp))
 }
 
 @Composable

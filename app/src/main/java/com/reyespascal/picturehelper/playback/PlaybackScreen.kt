@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,8 +58,8 @@ import com.reyespascal.picturehelper.diagnostics.DeviceInfo
 import com.reyespascal.picturehelper.ui.SafeH
 import com.reyespascal.picturehelper.ui.SafeV
 
-/** GUIDE = full panel; COMPARE = one-line reminder only (after the TV menu opens, until OK); HIDDEN = nothing. */
-enum class OverlayPanel { GUIDE, COMPARE, DETAILS, HIDDEN }
+/** GUIDE = full panel; MENU_CARD = instructions card while the TV menu is open; DETAILS = diagnostics; HIDDEN = nothing. */
+enum class OverlayPanel { GUIDE, MENU_CARD, DETAILS, HIDDEN }
 
 /** Actions the guide panel can trigger on the playback screen. */
 class OverlayActions(val showDetails: () -> Unit, val hide: () -> Unit)
@@ -70,8 +69,8 @@ class OverlayActions(val showDetails: () -> Unit, val hide: () -> Unit)
  * - The player exists only between onStart and onStop, so it keeps playing through onPause (the TV menu
  *   only takes window focus) and is released when the screen is really left.
  * - [scene] with a still time and [holding] = true seeks there and pauses, for before/after comparisons.
- * - When the TV menu opens, the guide shrinks to a one-line [reminder] and stays small after the menu closes,
- *   so the owner can keep flipping the setting and looking at the scene. OK brings the full guide back.
+ * - While the TV menu is open, the guide becomes a [menuCard] on the right (clear of the menu) that says
+ *   what to change and where. When the menu closes the full guide comes straight back.
  * - Only D-pad/OK (inside the panel) and Back are used; all other keys go to the TV.
  */
 @Composable
@@ -82,8 +81,8 @@ fun PlaybackScreen(
     holding: Boolean,
     /** True while another window (the TV's picture menu) has focus over this screen. */
     tvMenuOpen: Boolean,
-    /** One-line reminder shown while the TV menu is open, e.g. "Color Temperature → Low". */
-    reminder: String?,
+    /** Instructions shown on the right while the TV menu is open; null = nothing to show. */
+    menuCard: (@Composable ColumnScope.() -> Unit)?,
     guideFocus: FocusRequester,
     guide: @Composable ColumnScope.(OverlayActions) -> Unit,
     onExit: () -> Unit,
@@ -117,6 +116,15 @@ fun PlaybackScreen(
                         info = info.copy(loops = info.loops + 1)
                     }
                 }
+                // Start decoding only once the real SurfaceView surface exists. If the decoder starts on
+                // ExoPlayer's placeholder surface and is moved later, the Hisense decoder switches to a
+                // GPU-composited buffer format and the TV leaves HDR (seen on the TV 2026-11-03).
+                override fun onSurfaceSizeChanged(width: Int, height: Int) {
+                    if (width > 0 && height > 0 && playbackState == Player.STATE_IDLE && playerError == null) {
+                        PhLog.i("player: surface ready ${width}x$height, prepare")
+                        prepare()
+                    }
+                }
                 override fun onPlayerError(error: PlaybackException) {
                     PhLog.w("player: error ${error.errorCodeName}", error)
                     info = info.copy(state = "error", error = "${error.errorCodeName}: ${error.message ?: ""}")
@@ -143,8 +151,8 @@ fun PlaybackScreen(
                     info = info.copy(droppedFrames = info.droppedFrames + droppedFrames)
                 }
             })
-            prepare()
             playWhenReady = true
+            // prepare() waits for the surface: see onSurfaceSizeChanged above.
         }
         player = p
         onStopOrDispose {
@@ -176,17 +184,13 @@ fun PlaybackScreen(
 
     BackHandler {
         when (panel) {
-            OverlayPanel.HIDDEN, OverlayPanel.DETAILS, OverlayPanel.COMPARE -> panel = OverlayPanel.GUIDE
+            OverlayPanel.HIDDEN, OverlayPanel.DETAILS, OverlayPanel.MENU_CARD -> panel = OverlayPanel.GUIDE
             OverlayPanel.GUIDE -> onExit()
         }
     }
 
     // While the guide isn't shown, the screen itself holds focus; any D-pad or OK press brings it back.
     val rootFocus = remember { FocusRequester() }
-    // The TV menu opening switches the full guide to compare mode.
-    LaunchedEffect(tvMenuOpen) {
-        if (tvMenuOpen && panel == OverlayPanel.GUIDE) panel = OverlayPanel.COMPARE
-    }
     LaunchedEffect(panel, tvMenuOpen) {
         if (tvMenuOpen) return@LaunchedEffect
         runCatching { if (panel == OverlayPanel.GUIDE) guideFocus.requestFocus() else rootFocus.requestFocus() }
@@ -200,9 +204,8 @@ fun PlaybackScreen(
             .focusable()
             .onKeyEvent { e ->
                 val code = e.key.nativeKeyCode
-                // In compare mode only OK ends comparing; when hidden, any D-pad key or OK shows the guide.
-                val wakes = if (panel == OverlayPanel.COMPARE) code in OK_KEYS else code in NAV_KEYS
-                if (!wakes || panel == OverlayPanel.GUIDE) return@onKeyEvent false // other keys go to the TV
+                // When hidden, any D-pad key or OK shows the guide.
+                if (code !in NAV_KEYS || panel == OverlayPanel.GUIDE) return@onKeyEvent false // other keys go to the TV
                 if (e.type == KeyEventType.KeyUp) panel = OverlayPanel.GUIDE
                 true
             },
@@ -217,10 +220,10 @@ fun PlaybackScreen(
             }
         }
 
-        // What the overlay shows. The TV menu being open always means "reminder only" (unless hidden).
+        // What the overlay shows. The TV menu being open means "instructions card" (unless hidden).
         val shown = when {
             info.error != null -> OverlayPanel.HIDDEN
-            tvMenuOpen && panel != OverlayPanel.HIDDEN -> OverlayPanel.COMPARE
+            tvMenuOpen && panel != OverlayPanel.HIDDEN -> OverlayPanel.MENU_CARD
             else -> panel
         }
 
@@ -247,20 +250,14 @@ fun PlaybackScreen(
             }
         }
 
-        // Compare reminder: one quiet line at the bottom-right, clear of the TV menu and the scene.
+        // While the TV menu is open: what to change and where, on the right, clear of the menu.
         AnimatedVisibility(
-            visible = shown == OverlayPanel.COMPARE && reminder != null,
-            enter = fadeIn(tween(250)),
+            visible = shown == OverlayPanel.MENU_CARD && menuCard != null,
+            enter = fadeIn(tween(250)) + slideInHorizontally(tween(250)) { it / 6 },
             exit = fadeOut(tween(200)),
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = SafeH, bottom = SafeV),
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = SafeH, top = SafeV).widthIn(max = RightPanelMax),
         ) {
-            Row(
-                Modifier.background(Color(0xD90E1014), RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(reminder ?: "", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
-                if (!tvMenuOpen) Text("   OK when done", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            Panel(Modifier) { menuCard?.invoke(this) }
         }
     }
 }
