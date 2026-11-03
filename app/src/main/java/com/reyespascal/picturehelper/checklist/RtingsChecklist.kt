@@ -3,13 +3,12 @@ package com.reyespascal.picturehelper.checklist
 /** Which setup workflow an item belongs to. BOTH items appear in each list, with progress saved per list. */
 enum class Applies { SDR, HDR, BOTH }
 
-/** How RTINGS presents the value. Shown to the owner so preferences aren't mistaken for rules. */
-enum class Kind(val label: String) {
-    REC("RTINGS recommends"),
-    SHOWN("Shown in RTINGS' settings photos"),
-    DEFAULT("Leave as it is"),
-    AUTO("The TV changes this itself"),
-    PREF("Your preference"),
+/** Who the value comes from. Shown on every step so suggestions aren't mistaken for measurements. */
+enum class Source(val label: String) {
+    RTINGS("RTINGS"),
+    REVIEWERS("Other reviewers"),
+    OURS("Our suggestion"),
+    YOURS("Your choice"),
 }
 
 data class ChecklistItem(
@@ -17,23 +16,24 @@ data class ChecklistItem(
     val setting: String,
     val value: String,
     val applies: Applies,
-    val kind: Kind,
+    val source: Source,
+    /** Which review(s) back the value, in a few words; empty for our own suggestions. */
+    val credit: String,
+    /** True when the TV is usually already right: a quick look, listed after the real changes. */
+    val check: Boolean,
     /** One or two short sentences, our own wording. */
     val note: String,
-    /** Where to find it in the Hisense menu, as far as we know. */
+    /** Path in this TV's Picture menu (read from the owner's TV 2026-11-03). */
     val where: String,
-    /** False when the menu path hasn't been seen on the owner's TV yet. */
-    val whereConfirmed: Boolean,
-    /** Section of the RTINGS article this comes from. */
-    val section: String,
 )
 
 enum class SetupMode { SDR, HDR }
 
 /**
- * Summary of RTINGS' "Hisense U6H Calibration Settings" (page last updated 2023-10-24, checked 2026-11-03).
- * Values are RTINGS'; wording is ours. Deliberately excluded: RTINGS' white-balance and colorspace
- * calibration numbers (specific to their own TV), HDMI, gaming, eARC and other non-picture settings.
+ * Every setting in the Hisense 65U6H Picture menu (firmware read 2026-11-03), for HDR10 and SDR.
+ * Values come from RTINGS' U6H settings page, backed or filled in by other reviews; wording is ours.
+ * Deliberately excluded: white-balance / colour calibration numbers (specific to one measured unit).
+ * Order: Picture Mode first (the TV keeps settings per mode), then menu order; quick checks last.
  */
 object RtingsChecklist {
     const val SOURCE_TITLE = "Hisense U6H Calibration Settings — RTINGS.com"
@@ -41,122 +41,167 @@ object RtingsChecklist {
     const val SOURCE_UPDATED = "2023-10-24"
     const val CHECKED = "2026-11-03"
 
-    private const val MENU = "Square two-line button › Picture"
+    /** Other reviews used to confirm or fill in values. Shown in About. */
+    val OTHER_SOURCES = listOf(
+        "RTINGS — Hisense U8H and U6K settings pages",
+        "Reviewed — Hisense U6H review",
+        "Digital Trends — Hisense U8K settings",
+        "PCMag and T3 — Hisense U-series reviews",
+        "Sound & Vision — Hisense 65H8G review (gamma)",
+    )
+
+    /** Bump when ids or order change, so a saved position from an older list isn't reused. */
+    const val LIST_VERSION = 2
+
+    private const val P = "Picture"
+    private const val ADV = "$P › Advanced Settings"
+    private const val BL = "$P › Backlight"
+    private const val CAL = "$P › Calibration Settings"
 
     val all: List<ChecklistItem> = listOf(
-        // ---- HDR ----
+        // ---- Changes, menu order ----
         ChecklistItem(
-            "H3", "Picture Mode", "HDR Theater", Applies.HDR, Kind.REC,
-            "RTINGS used this mode for HDR.",
-            "$MENU › Picture Mode", true, "HDR",
+            "H3", "Picture Mode", "HDR Theater", Applies.HDR, Source.RTINGS, "RTINGS U6H", false,
+            "Set this first: the TV remembers the other settings separately for each mode.",
+            "$P › Picture Mode",
         ),
         ChecklistItem(
-            "H2", "Backlight Level", "Max (check only)", Applies.HDR, Kind.AUTO,
-            "In HDR the TV raises the backlight to Max by itself. Just check it.",
-            "$MENU › Backlight › Backlight Level", true, "HDR",
+            "S1", "Picture Mode", "Theater Night", Applies.SDR, Source.RTINGS, "RTINGS U6H", false,
+            "The most accurate preset. Set it first: the TV remembers the other settings per mode.",
+            "$P › Picture Mode",
         ),
         ChecklistItem(
-            "H4", "Color Temperature", "Warm1 or Warm2", Applies.HDR, Kind.REC,
-            "RTINGS says \"Low\"; your TV calls its warm choices Warm1 and Warm2. Compare the two on the face and keep the one where white looks plain white, not blue or orange.",
-            "$MENU › Advanced Settings › Color Temperature", true, "HDR",
+            "H2", "Backlight Level", "Max", Applies.HDR, Source.RTINGS, "RTINGS U6H", true,
+            "In HDR the TV sets this to Max itself. Just check it.",
+            "$BL › Backlight Level",
         ),
         ChecklistItem(
-            "H5", "Everything else in HDR", "Leave as it is", Applies.HDR, Kind.DEFAULT,
-            "RTINGS gives no other HDR values. Don't copy the SDR numbers (like Contrast 39) into HDR.",
-            MENU, true, "HDR",
-        ),
-        // ---- SDR ----
-        ChecklistItem(
-            "S1", "Picture Mode", "Theater Night", Applies.SDR, Kind.REC,
-            "The most accurate preset with the most adjustments. Theater Day is a bit brighter but less accurate.",
-            "$MENU › Picture Mode", true, "Basic SDR Picture Settings",
+            "S2", "Backlight Level", "55 dark room · 80–100 bright", Applies.SDR, Source.RTINGS,
+            "RTINGS U6H (55 in a dim room)", false,
+            "Pick for your room; it changes brightness, not accuracy.",
+            "$BL › Backlight Level",
         ),
         ChecklistItem(
-            "S2", "Backlight Level", "55, then to taste", Applies.SDR, Kind.PREF,
-            "55 matched RTINGS' dim test room. Raise or lower it for your room; it doesn't affect accuracy.",
-            "$MENU › Backlight › Backlight Level", true, "Basic SDR Picture Settings",
+            "H9", "Contrast", "50", Applies.HDR, Source.RTINGS, "RTINGS U6H", false,
+            "Don't copy the SDR value (39) into HDR.",
+            "$P › Contrast",
         ),
         ChecklistItem(
-            "S3", "Local Dimming", "High", Applies.SDR, Kind.SHOWN,
-            "The value on RTINGS' Backlight screen.",
-            "$MENU › Backlight › Local Dimming", true, "Basic SDR Picture Settings",
+            "S5", "Contrast", "39", Applies.SDR, Source.RTINGS, "RTINGS U6H", false, "",
+            "$P › Contrast",
         ),
         ChecklistItem(
-            "S4", "Automatic Light Sensor", "Off", Applies.SDR, Kind.SHOWN,
-            "Off keeps brightness steady instead of following room light.",
-            "$MENU › Backlight › Automatic Light Sensor", true, "Basic SDR Picture Settings",
+            "H7", "Sharpness", "0", Applies.HDR, Source.RTINGS, "RTINGS U6H settings photo", false,
+            "0 adds no artificial edges. If the picture looks soft to you, 7 is the factory value.",
+            "$P › Sharpness",
         ),
         ChecklistItem(
-            "S5", "Contrast", "39", Applies.SDR, Kind.REC, "",
-            "$MENU › Contrast", true, "Basic SDR Picture Settings",
+            "S9", "Sharpness", "0", Applies.SDR, Source.RTINGS, "RTINGS U6H settings photo", false,
+            "0 adds no artificial edges.",
+            "$P › Sharpness",
         ),
         ChecklistItem(
-            "S6", "Brightness", "50", Applies.SDR, Kind.REC,
-            "Not the same as Backlight. RTINGS suggests leaving it at 50.",
-            "$MENU › Brightness", true, "Basic SDR Picture Settings",
-        ),
-        ChecklistItem("S7", "Color", "50", Applies.SDR, Kind.REC, "", "$MENU › Color", true, "Basic SDR Picture Settings"),
-        ChecklistItem("S8", "Tint", "0", Applies.SDR, Kind.REC, "", "$MENU › Tint", true, "Basic SDR Picture Settings"),
-        ChecklistItem("S9", "Sharpness", "0", Applies.SDR, Kind.SHOWN, "", "$MENU › Sharpness", true, "Basic SDR Picture Settings"),
-        ChecklistItem(
-            "S10", "Picture Size", "Wide", Applies.SDR, Kind.SHOWN, "",
-            "$MENU › Picture Size", false, "Basic SDR Picture Settings",
+            "H6", "Color Temperature", "Warm1", Applies.HDR, Source.RTINGS,
+            "RTINGS U8H · Digital Trends U8K", false,
+            "RTINGS' U6H page says \"Low\"; this TV's closest match is Warm1, the one RTINGS measured nearest standard white.",
+            "$ADV › Color Temperature",
         ),
         ChecklistItem(
-            "S11", "Color Temperature", "Low", Applies.SDR, Kind.REC,
-            "Low is the closest to the standard white point.",
-            "$MENU › Advanced Settings › Color Temperature", false, "Advanced SDR Picture Settings",
+            "S11", "Color Temperature", "Warm1", Applies.SDR, Source.RTINGS,
+            "RTINGS U8H · Digital Trends U8K", false,
+            "RTINGS' U6H page says \"Low\"; this TV's closest match is Warm1, the one RTINGS measured nearest standard white.",
+            "$ADV › Color Temperature",
         ),
         ChecklistItem(
-            "S12", "Overscan", "Off", Applies.SDR, Kind.SHOWN, "",
-            "$MENU › Advanced Settings › Overscan", false, "Advanced SDR Picture Settings",
+            "M1", "Motion Enhancement", "Off", Applies.BOTH, Source.RTINGS, "RTINGS · Reviewed", false,
+            "Keeps films looking like films. If camera pans stutter, try Film.",
+            "$ADV › Motion Enhancement",
         ),
         ChecklistItem(
-            "S13", "Noise Reduction", "Off", Applies.SDR, Kind.REC,
-            "Can smear fine detail in good-quality video.",
-            "$MENU › Advanced Settings › Noise Reduction", false, "Advanced SDR Picture Settings",
+            "M2", "Motion Clearness", "Off", Applies.BOTH, Source.REVIEWERS, "Reviewed", false,
+            "It flickers the backlight and dims the picture.",
+            "$ADV › Motion Clearness",
         ),
         ChecklistItem(
-            "S14", "Digital Noise Reduction", "Off", Applies.SDR, Kind.REC,
-            "Same reason as Noise Reduction.",
-            "$MENU › Advanced Settings › Digital Noise Reduction", false, "Advanced SDR Picture Settings",
+            "M3", "Noise Reduction", "Off", Applies.BOTH, Source.RTINGS, "RTINGS · Reviewed", false,
+            "Smears fine detail in good video. Low only for a bad, noisy stream.",
+            "$ADV › Noise Reduction",
         ),
         ChecklistItem(
-            "S15", "Active Contrast", "Off", Applies.SDR, Kind.REC,
-            "Same reason: it can cost fine detail.",
-            "$MENU › Advanced Settings › Active Contrast", false, "Advanced SDR Picture Settings",
+            "M4", "Digital Noise Reduction", "Off", Applies.BOTH, Source.RTINGS, "RTINGS · Reviewed", false,
+            "Same reason as Noise Reduction. Low only for a blocky stream.",
+            "$ADV › Digital Noise Reduction",
         ),
         ChecklistItem(
-            "S16", "Color Space", "Auto", Applies.SDR, Kind.REC,
-            "Stops SDR colours looking oversaturated.",
-            "$MENU › Advanced Settings › Color Space", false, "Advanced SDR Picture Settings",
-        ),
-        // ---- Both ----
-        ChecklistItem(
-            "M1", "Motion Enhancement", "Off (or Custom to taste)", Applies.BOTH, Kind.PREF,
-            "RTINGS tested with it off. For smoother motion pick Custom and set Judder and Blur Reduction to taste.",
-            "$MENU › Advanced Settings › Motion Enhancement", false, "Motion Settings",
+            "M5", "FILMMAKER MODE Auto Detection", "Off", Applies.BOTH, Source.OURS, "", false,
+            "When On, the TV can switch to FILMMAKER MODE by itself and replace the mode you just set up.",
+            "$ADV › FILMMAKER MODE Auto Detection",
         ),
         ChecklistItem(
-            "M2", "Motion Clearness", "Off", Applies.BOTH, Kind.SHOWN,
-            "Off as RTINGS tested. Your choice.",
-            "$MENU › Advanced Settings › Motion Clearness", false, "Motion Settings",
+            "H8", "Gamma", "ST2084", Applies.HDR, Source.RTINGS, "RTINGS U6H", true,
+            "HDR uses its own curve; the TV usually locks it. Just check it.",
+            "$CAL › Gamma",
         ),
         ChecklistItem(
-            "G2", "Apply Picture Settings", "Your choice", Applies.BOTH, Kind.SHOWN,
-            "RTINGS' photo shows \"All Sources\". This decides whether your changes also reach the HDMI inputs.",
-            "$MENU › Apply Picture Settings", false, "Basic SDR Picture Settings",
+            "S17", "Gamma", "2.2 lit room · BT1886 dark", Applies.SDR, Source.RTINGS,
+            "RTINGS U6H · Sound & Vision", false,
+            "BT1886 shows more shadow detail in a dark room; 2.2 holds up better with lights on.",
+            "$CAL › Gamma",
+        ),
+        // ---- Quick checks: usually already right ----
+        ChecklistItem(
+            "Q1", "Local Dimming", "High", Applies.BOTH, Source.RTINGS, "RTINGS U6H settings photo", true,
+            "Deepest blacks.", "$BL › Local Dimming",
         ),
         ChecklistItem(
-            "G1", "Energy Saver", "Your choice", Applies.BOTH, Kind.PREF,
-            "RTINGS turned it off only so the TV stayed on during testing.",
-            "Settings › System › Power & Energy (if present)", false, "Power and Energy Saving",
+            "Q2", "Automatic Light Sensor", "Off", Applies.BOTH, Source.RTINGS, "RTINGS U6H settings photo", true,
+            "Keeps brightness steady instead of following room light.", "$BL › Automatic Light Sensor",
+        ),
+        ChecklistItem(
+            "Q4", "Brightness", "50", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true,
+            "Not the same as Backlight: this sets the black level.", "$P › Brightness",
+        ),
+        ChecklistItem(
+            "Q5", "Color", "50", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true, "", "$P › Color",
+        ),
+        ChecklistItem(
+            "Q6", "Tint", "0", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true, "", "$P › Tint",
+        ),
+        ChecklistItem(
+            "G2", "Apply Picture Settings", "Your choice", Applies.BOTH, Source.YOURS, "RTINGS photo: All Sources", true,
+            "Decides whether your changes also reach the HDMI inputs.", "$P › Apply Picture Settings",
+        ),
+        ChecklistItem(
+            "Q3", "Smart Scene", "Off", Applies.BOTH, Source.OURS, "", true,
+            "When On, the TV adjusts the picture for each scene on its own.", "$P › Smart Scene",
+        ),
+        ChecklistItem(
+            "Q7", "Active Contrast", "Off", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true,
+            "Can crush dark detail.", "$ADV › Active Contrast",
+        ),
+        ChecklistItem(
+            "Q8", "Color Space", "Auto", Applies.BOTH, Source.RTINGS, "RTINGS U6H", true,
+            "Stops colours looking oversaturated.", "$ADV › Color Space",
+        ),
+        ChecklistItem(
+            "Q10", "Instant Game Response", "On", Applies.BOTH, Source.OURS, "", true,
+            "Only acts when a game console asks for it; films are unaffected.", "$ADV › Instant Game Response",
+        ),
+        ChecklistItem(
+            "Q9", "Low Blue Light", "Off", Applies.BOTH, Source.OURS, "", true,
+            "On tints the whole picture yellow.", "$ADV › Low Blue Light",
+        ),
+        ChecklistItem(
+            "Q12", "Calibration Settings", "Leave at 0", Applies.BOTH, Source.OURS, "", true,
+            "Color Tuner and the other adjustments here fine-tune one measured TV. Leave them at 0.",
+            "$CAL",
         ),
     )
 
+    /** Changes first, then quick checks; each part keeps menu order. */
     fun forMode(mode: SetupMode): List<ChecklistItem> = all.filter {
         it.applies == Applies.BOTH || it.applies.name == mode.name
-    }
+    }.sortedBy { it.check }
 
     /** RTINGS' informational note that isn't a setting to change. Shown in About. */
     const val JUDDER_NOTE =

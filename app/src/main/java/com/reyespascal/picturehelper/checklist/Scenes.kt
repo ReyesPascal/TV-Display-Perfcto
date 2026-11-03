@@ -15,12 +15,14 @@ enum class Scene(val label: String, val positionMs: Long?, val shows: String) {
 
 object SceneFor {
     private val map = mapOf(
-        "H3" to Scene.FACE, "H2" to Scene.SKY, "H4" to Scene.FACE, "H5" to Scene.MOVING,
-        "S1" to Scene.FACE, "S2" to Scene.SKY, "S3" to Scene.SHADOWS, "S4" to Scene.SKY,
-        "S5" to Scene.SHADOWS, "S6" to Scene.SHADOWS, "S7" to Scene.COLOUR, "S8" to Scene.FACE,
-        "S9" to Scene.DETAIL, "S10" to Scene.DETAIL, "S11" to Scene.FACE, "S12" to Scene.DETAIL,
-        "S13" to Scene.SKY, "S14" to Scene.DETAIL, "S15" to Scene.SHADOWS, "S16" to Scene.COLOUR,
-        "M1" to Scene.MOVING, "M2" to Scene.MOVING, "G1" to Scene.MOVING, "G2" to Scene.MOVING,
+        "H3" to Scene.FACE, "S1" to Scene.FACE, "H2" to Scene.SKY, "S2" to Scene.SKY,
+        "H9" to Scene.SHADOWS, "S5" to Scene.SHADOWS, "H7" to Scene.DETAIL, "S9" to Scene.DETAIL,
+        "H6" to Scene.FACE, "S11" to Scene.FACE, "M1" to Scene.MOVING, "M2" to Scene.MOVING,
+        "M3" to Scene.SKY, "M4" to Scene.DETAIL, "M5" to Scene.MOVING, "H8" to Scene.SHADOWS,
+        "S17" to Scene.SHADOWS, "Q1" to Scene.SHADOWS, "Q2" to Scene.SKY, "Q4" to Scene.SHADOWS,
+        "Q5" to Scene.COLOUR, "Q6" to Scene.FACE, "G2" to Scene.MOVING, "Q3" to Scene.MOVING,
+        "Q7" to Scene.SHADOWS, "Q8" to Scene.COLOUR, "Q10" to Scene.MOVING, "Q9" to Scene.FACE,
+        "Q12" to Scene.FACE,
     )
 
     fun item(id: String): Scene = map[id] ?: Scene.MOVING

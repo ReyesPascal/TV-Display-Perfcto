@@ -28,6 +28,11 @@ fun AboutScreen() {
                     "starting point, not exact values to copy. Their white-balance and colour calibration numbers " +
                     "are left out because they're specific to the TV RTINGS tested.",
             )
+            Body("Also checked against", size = 20.sp, color = androidx.tv.material3.MaterialTheme.colorScheme.primary)
+            Body(
+                RtingsChecklist.OTHER_SOURCES.joinToString("\n") +
+                    "\nEach step says whether its value is from RTINGS, other reviewers, or Picture Helper's own suggestion.",
+            )
             Body("Motion", size = 20.sp, color = androidx.tv.material3.MaterialTheme.colorScheme.primary)
             Body(RtingsChecklist.JUDDER_NOTE)
             Body("Setup videos", size = 20.sp, color = androidx.tv.material3.MaterialTheme.colorScheme.primary)

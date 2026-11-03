@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.reyespascal.picturehelper.checklist.ChecklistItem
-import com.reyespascal.picturehelper.checklist.Kind
 import com.reyespascal.picturehelper.checklist.Mark
 import com.reyespascal.picturehelper.checklist.Progress
 import com.reyespascal.picturehelper.checklist.ProgressStore
@@ -132,19 +131,16 @@ private fun ColumnScope.GuideItem(
                 Text(it.note, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 6.dp))
             }
             Text(
-                (if (it.kind == Kind.DEFAULT) "" else it.kind.label + "  ·  ") +
-                    "Where: " + it.where.substringAfter("Square two-line button › ", it.where) +
-                    if (it.whereConfirmed) "" else " (not yet checked on your TV)",
+                it.source.label + (if (it.credit.isBlank()) "" else " (${it.credit})") + "  ·  Where: ${it.where}",
                 fontSize = 13.sp, color = Muted, modifier = Modifier.padding(top = 6.dp),
             )
         }
     }
 
     // Scene for before/after: one button cycles scenes, one holds or plays.
-    val nothingToChange = item.kind == Kind.AUTO || item.kind == Kind.DEFAULT
     Text(
         when {
-            nothingToChange -> "Nothing to change here. Press Applied (or Skip) to move on."
+            item.check -> "Quick check: usually already right. If the TV shows this, press Applied."
             scene.positionMs != null && holding ->
                 "The picture is frozen on ${scene.shows}. To compare: open the TV menu, go to this setting, " +
                     "pick one choice with OK and look at the picture, then pick the other and look again. " +
@@ -183,7 +179,7 @@ private fun ColumnScope.MenuCard(
     mode: SetupMode, items: List<ChecklistItem>, progress: Progress, current: ChecklistItem?,
 ) {
     val open = items.filter { progress.marks[it.id] == null }
-    val (change, check) = open.partition { it.kind != Kind.AUTO && it.kind != Kind.DEFAULT }
+    val (check, change) = open.partition { it.check }
     val rows = (change + check).take(MenuCardRows)
 
     Text("Change these in the TV menu  ·  ${mode.title}", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
@@ -195,7 +191,7 @@ private fun ColumnScope.MenuCard(
             color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 8.dp))
     }
     rows.forEach { row ->
-        val dim = row.kind == Kind.AUTO || row.kind == Kind.DEFAULT
+        val dim = row.check
         val here = row.id == current?.id
         Column(
             Modifier.padding(top = 4.dp).fillMaxWidth()
@@ -210,7 +206,7 @@ private fun ColumnScope.MenuCard(
             }
             // One line per path; "Picture ›" is implied because the card sits beside the Picture menu.
             Text(
-                row.where.substringAfter("Square two-line button › Picture › ", row.where.substringAfter("Square two-line button › ")),
+                row.where.substringAfter("Picture › ", row.where),
                 fontSize = 12.sp, lineHeight = 14.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }

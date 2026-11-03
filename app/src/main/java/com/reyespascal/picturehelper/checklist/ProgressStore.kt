@@ -20,13 +20,18 @@ class ProgressStore(private val store: DataStore<Preferences>) {
 
     private fun markKey(mode: SetupMode, id: String) = stringPreferencesKey("${mode.name}:mark:$id")
     private fun posKey(mode: SetupMode) = intPreferencesKey("${mode.name}:position")
+    private fun versionKey(mode: SetupMode) = intPreferencesKey("${mode.name}:listVersion")
 
     fun progress(mode: SetupMode): Flow<Progress> = store.data.map { prefs ->
-        val marks = RtingsChecklist.forMode(mode).mapNotNull { item ->
+        val items = RtingsChecklist.forMode(mode)
+        val marks = items.mapNotNull { item ->
             prefs[markKey(mode, item.id)]?.let { raw -> Mark.entries.firstOrNull { it.name == raw } }
                 ?.let { item.id to it }
         }.toMap()
-        Progress(marks, prefs[posKey(mode)] ?: 0)
+        // A position saved for an older list points at a different step: resume at the first unmarked one.
+        val position = if (prefs[versionKey(mode)] == RtingsChecklist.LIST_VERSION) prefs[posKey(mode)] ?: 0
+        else items.indexOfFirst { it.id !in marks }.let { if (it < 0) items.size else it }
+        Progress(marks, position)
     }
 
     suspend fun mark(mode: SetupMode, id: String, mark: Mark?) {
@@ -34,7 +39,10 @@ class ProgressStore(private val store: DataStore<Preferences>) {
     }
 
     suspend fun setPosition(mode: SetupMode, position: Int) {
-        store.edit { it[posKey(mode)] = position }
+        store.edit {
+            it[posKey(mode)] = position
+            it[versionKey(mode)] = RtingsChecklist.LIST_VERSION
+        }
     }
 
     /** Clears this app's checklist for one mode. It does not touch any TV setting. */

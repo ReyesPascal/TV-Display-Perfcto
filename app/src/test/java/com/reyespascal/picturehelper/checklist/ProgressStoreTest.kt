@@ -47,11 +47,20 @@ class ProgressStoreTest {
     @Test fun clearingAMarkAndCounting() = runTest {
         val store = newStore()
         store.mark(SetupMode.SDR, "S5", Mark.APPLIED)
-        store.mark(SetupMode.SDR, "S6", Mark.APPLIED)
-        store.mark(SetupMode.SDR, "S7", Mark.SKIPPED)
-        store.mark(SetupMode.SDR, "S6", null)
+        store.mark(SetupMode.SDR, "Q4", Mark.APPLIED)
+        store.mark(SetupMode.SDR, "Q5", Mark.SKIPPED)
+        store.mark(SetupMode.SDR, "Q4", null)
         val p = store.progress(SetupMode.SDR).first()
         assertEquals(1, p.count(Mark.APPLIED))
         assertEquals(1, p.count(Mark.SKIPPED))
+    }
+
+    @Test fun positionFromAnOlderListResumesAtFirstUnmarked() = runTest {
+        val store = newStore()
+        // Marks saved without a list version (the old list): position must not be trusted.
+        store.mark(SetupMode.HDR, "H3", Mark.APPLIED)
+        assertEquals(1, store.progress(SetupMode.HDR).first().position)
+        store.setPosition(SetupMode.HDR, 5)
+        assertEquals(5, store.progress(SetupMode.HDR).first().position)
     }
 }
