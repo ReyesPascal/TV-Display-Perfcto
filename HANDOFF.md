@@ -1,32 +1,56 @@
-# Handoff — Picture Helper (2026-11-03 ~03:50)
+# Handoff — Picture Helper (2026-11-03 ~04:55)
 
-Read CLAUDE.md and SPEC.md first. Owner rules: plan before build; wait for "go"; plain-text questions;
-push to GitHub after each TV-verified milestone; ask before creating any signing key.
+Read CLAUDE.md and SPEC.md first. Owner rules: plan before build; plain-text questions; push to GitHub after each
+TV-verified milestone; ask before creating any signing key. Hisense adb: `adb -s <tv-ip>:5555` (IP in Claude memory, not in the repo) (check
+`adb devices -l` shows `songshan`).
 
 ## State
-- `main` @ 7c4bb50 — **M1 verified on the Hisense**: HDR10 loop, TV picture menu (square two-line button →
-  Picture) opens over playback without pausing it, HDR picture modes listed, right-side diagnostics panel.
-- Branch `wip-guide` — **guide work, NOT yet verified on the TV** (builds; 11 unit tests pass; lint 0 errors):
-  - `checklist/RtingsChecklist.kt` (26 items, HDR/SDR/BOTH, kind, where, source section), `ProgressStore.kt`
-    (DataStore, per-mode marks + position, reset), `Scenes.kt` (5 held scenes + Moving, mapped per item).
-  - `ui/`: Home (HDR10 setup, SDR setup, Saved progress, Diagnostics, About), PrePlay, Progress (+ reset
-    confirm), About (RTINGS + CC BY attribution), Diagnostics, Components (TvButton yellow focus, ConfirmDialog).
-  - `ui/GuideFlow.kt` + `playback/PlaybackScreen.kt`: one setting at a time on the right; auto-holds the item's
-    scene for before/after; **compare mode**: when the TV menu opens (window focus lost) the guide shrinks to a
-    one-line reminder bottom-right and stays small after the menu closes until OK; Hide; Details; summary at end.
-  - Polish per tvOS HIG: 250 ms fade/slide panel, fade between items, progress bar, ✓ on current mark,
-    safe margins 48x30 dp.
-- Installed on the TV: still the M1+right-panel debug build (0.1.0). The guide build is not installed.
+- `main` @ 7c4bb50 (M1). Branch `wip-guide` @ d8fe7d9, **committed locally, NOT pushed** (origin/wip-guide is 2354a32).
+- Fixed and verified on the TV in this session:
+  - **HDR-loss bug**: ExoPlayer prepare() before the SurfaceView existed → decoder started on the placeholder
+    surface → moving it switched the Hisense buffer format 0x13→0x15 → GPU composition → TV dropped HDR.
+    Fix: prepare in `onSurfaceSizeChanged` (PlaybackScreen.kt). Owner confirmed HDR modes listed again.
+    Probes: logcat `SurfaceUtils ... color 0x13` good / `0x15` bad; `dumpsys SurfaceFlinger` HWC comp DEVICE vs
+    CLIENT; logcat `getSystemCB ... Picture_Mode=` (17 = SDR Theater Night, 4 = HDR Theater).
+  - Held (paused) scenes keep HDR (logs: DEVICE, Picture_Mode=4).
+  - While the TV menu is open the guide shows a **card on the right listing every unmarked item** (changes first,
+    check-only dimmed); closing the menu brings the full guide back. Owner saw it fit on screen.
+  - Removed the "Check HDR is on" step; clearer compare instructions.
+- Current TV state: guide build d8fe7d9 installed; owner finished HDR list (8/8 old items).
+- Remote control from adb works: `KEYCODE_SETTINGS` opens the quick bar, 4×Right = Picture, OK. `uiautomator dump`
+  reads the tv.settings menu text. Never press OK on toggles (Smart Scene, light sensor) or list items.
 
-## Next
-1. Emulator check of the guide UI. The emulator can't decode our 4K clips, and `adb push` into
-   `/sdcard/Android/data/<pkg>/files/` was **denied** on the Android 11 emulator. Use a debug-only test asset or
-   `run-as`, or skip the emulator and test on the TV. The SPEC "copy your own clip" fallback is unverified.
-2. Install the guide build on the TV (`adb -s 192.168.4.27:5555 install -r app/build/outputs/apk/debug/app-debug.apk`)
-   and have the owner test: scene hold keeps HDR on, compare mode, marks saved, focus after closing the TV menu.
-3. If it passes: merge `wip-guide` → `main`, push. Then M5 SDR check (HDR→SDR transition) and M6 release
-   (signing key only if the owner agrees; the debug APK is 90 MB).
+## Approved next step (owner said go; in progress)
+Rewrite `checklist/RtingsChecklist.kt` to cover EVERY setting in this TV's Picture menu (map below), labelled
+RTINGS / other reviewers / our suggestion; settings usually already right become quick "check" items listed after
+the changes. **Owner decisions: no white-balance/calibration section at all; Color Temperature = Warm1.**
 
-## Housekeeping
-- The emulator may still be running (`adb -s emulator-5584 emu kill`).
-- Clip rebuild: `scripts/make-clips.sh <work dir on disk>` (downloads ~8 GB of masters; delete them afterwards).
+| Setting | HDR | SDR | Label |
+|---|---|---|---|
+| Picture Mode | HDR Theater | Theater Night | RTINGS |
+| Color Temperature | Warm1 | Warm1 | RTINGS (U8H: Warm1 closest to 6500K) + Digital Trends U8K |
+| Noise Reduction / Digital NR | Off / Off (Low only for bad streams) | same | RTINGS, Reviewed |
+| Sharpness | 0 (7 = factory if soft) | 0 | RTINGS U6H screenshot |
+| Motion Enhancement | Off (Film if pans stutter) | same | RTINGS, Reviewed |
+| Motion Clearness | Off | Off | Reviewed |
+| FILMMAKER MODE Auto Detection | Off | Off | our suggestion |
+| Backlight Level | Max (TV sets it; check) | ~55 dark room / 80–100 bright | RTINGS |
+| Gamma | ST2084 (locked) | 2.2 lit room / BT1886 dark room | RTINGS, Sound & Vision |
+| Contrast | 50 | 39 | RTINGS |
+| quick checks | Local Dimming High, Light Sensor Off, Smart Scene Off, Brightness 50, Color 50, Tint 0, Active Contrast Off, Color Space Auto, Low Blue Light Off, Instant Game Response On, Apply Picture Settings (your choice), Calibration Settings menus stay 0 | same | mixed |
+
+Remove items not in this firmware's menu: Picture Size, Overscan. Update tests (H4/S11 values, S16 id), Scenes map
+(every id mapped), MenuCard partition (quick items dimmed), About screen source list (RTINGS U6H/U8H/U6K, Reviewed
+U6H, Digital Trends U8K, PCMag, T3, Sound & Vision 65H8G). Then build/lint/test, install, owner checks, then merge
+`wip-guide` → `main` and push.
+
+## TV Picture menu (read 2026-11-03)
+Picture: Backlight › (Local Dimming, Backlight Level, Automatic Light Sensor, Light Sensor Shift) · Picture Mode ·
+Contrast · Brightness · Color · Tint · Sharpness · Apply Picture Settings · Smart Scene (toggle) · Advanced Settings ›
+(Color Temperature Warm1/Warm2/Standard/Cool, Motion Enhancement, Motion Clearness, Noise Reduction, Digital Noise
+Reduction, Active Contrast, FILMMAKER MODE Auto Detection, Color Space, Instant Game Response, PC Sync, Low Blue
+Light) · Calibration Settings › (Color Tuner, White Balance 2/20 Point, Gamma, Gamma Calibration, RGB Only) · Reset.
+
+## Later
+Dolby Vision setup (owner asked; deferred, needs a DV clip). M5 SDR↔HDR transition check, M6 release (signing key
+only if the owner agrees).

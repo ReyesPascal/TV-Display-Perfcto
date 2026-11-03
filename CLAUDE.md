@@ -34,3 +34,7 @@ can be used, and walks through the RTINGS U6H settings. Full spec: [SPEC.md](SPE
 - Picture menu = remote's square two-line button → Picture. It's a `com.android.tv.settings` overlay: the app only
   loses window focus (no onPause) and HDR playback continues (verified M1).
 - `adb exec-out screencap -p` output is corrupted by vendor messages; use `screencap -p /data/local/tmp/x.png` + `adb pull`.
+- **HDR needs the decoder to start on the real SurfaceView.** If ExoPlayer prepares before the surface exists, the
+  decoder starts on a placeholder surface; moving it later switches the buffer format (logcat `SurfaceUtils … color
+  0x13` → `0x15`), SurfaceFlinger falls back to CLIENT composition and the TV leaves HDR. Prepare in
+  `onSurfaceSizeChanged`. Quick check: `dumpsys SurfaceFlinger` video layer must be DEVICE.
