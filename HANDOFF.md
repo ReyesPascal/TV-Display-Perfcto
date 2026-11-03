@@ -20,7 +20,20 @@ TV-verified milestone; ask before creating any signing key. Hisense adb: `adb -s
 - Remote control from adb works: `KEYCODE_SETTINGS` opens the quick bar, 4×Right = Picture, OK. `uiautomator dump`
   reads the tv.settings menu text. Never press OK on toggles (Smart Scene, light sensor) or list items.
 
-## Approved next step (owner said go; in progress)
+## Update 2026-11-03 ~05:30
+- Full-menu checklist DONE: `wip-guide` @ eff918e (local, not pushed), installed on the TV, awaiting owner check.
+  HDR 17 items / SDR 17 items (changes first, quick checks dimmed after). Source labels: RTINGS / Other reviewers /
+  Our suggestion / Your choice. Saved position from the old list resumes at first unmarked (LIST_VERSION=2).
+  After owner OK: merge wip-guide → main, push.
+- **Dolby Vision (owner wants it, not started — needs owner "go")**: TV decodes DV profiles 4, 5, 8 (UHD60), 9, 10;
+  NOT 7/6 (`dumpsys media.player`). Source found: Netflix Open Content
+  `SolLevante/vdm/sollevante_lp_16b_hdr_p3d65pq_dolbyvision29.xml` (CM v2.9, 6314 frames = our HDR10 .mov, CC BY 4.0).
+  Pipeline: `dovi_tool generate --xml` (+ real L6 1429/611) → `dovi_tool editor` remove 0-1201,1930-6313 (728 RPUs)
+  → inject into our HDR10 encode → MP4Box mux with dvvC (profile 8.1, HDR10 fallback). Then TV test: menu must show
+  Dolby Vision picture modes; then read DV Picture menu and research DV settings.
+  Backup source: EBU/DVB CC BY HDR10+ clip (dvb.org/?p=18189) → dovi_tool from HDR10+ JSON.
+
+## Previous step (done, see above)
 Rewrite `checklist/RtingsChecklist.kt` to cover EVERY setting in this TV's Picture menu (map below), labelled
 RTINGS / other reviewers / our suggestion; settings usually already right become quick "check" items listed after
 the changes. **Owner decisions: no white-balance/calibration section at all; Color Temperature = Warm1.**
