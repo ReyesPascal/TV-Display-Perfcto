@@ -20,6 +20,16 @@ TV-verified milestone; ask before creating any signing key. Hisense adb: `adb -s
 - Remote control from adb works: `KEYCODE_SETTINGS` opens the quick bar, 4×Right = Picture, OK. `uiautomator dump`
   reads the tv.settings menu text. Never press OK on toggles (Smart Scene, light sensor) or list items.
 
+## Update 2026-11-03 ~05:15 — Dolby Vision
+- `main` pushed @ c1acbaa (full-menu checklist). Branch `wip-dv` @ 7bf4845 (local, NOT pushed): Dolby Vision setup
+  mode with bundled `clips/dolby_vision.mp4` (DV 8.1, verified on TV: decoder OMX.MS.DOLBY_VISION.DVHE.ST, TV signal
+  "Dolby", quick bar Picture Mode "Dolby Vision IQ"). Installed on TV; awaiting owner check, then merge + push.
+- TV DV modes: Dolby Vision IQ / Dark / Custom / Game. Greyed in DV: Motion Clearness, Low Blue Light, Gamma.
+- DV checklist: Dark (IQ for bright room), Sharpness 0, motion/NR off; checks Backlight 100, Contrast 50, Color Temp
+  = mode's own. Research: RTINGS U6N/U7N, AVForums U7K/U8K (Dark too dim), Dolby, Spears & Munsil (via Codex).
+- APK is 121 MB (owner OK'd 50–120 MB) — mention if it matters.
+- Codex CLI can do builds from a spec (`codex exec -s workspace-write`), but its sandbox blocks Gradle; run Gradle here.
+
 ## Update 2026-11-03 ~05:30
 - Full-menu checklist DONE: `wip-guide` @ eff918e (local, not pushed), installed on the TV, awaiting owner check.
   HDR 17 items / SDR 17 items (changes first, quick checks dimmed after). Source labels: RTINGS / Other reviewers /
