@@ -46,11 +46,6 @@ object RtingsChecklist {
     val all: List<ChecklistItem> = listOf(
         // ---- HDR ----
         ChecklistItem(
-            "H1", "Check HDR is on", "Look for HDR in Picture Mode", Applies.HDR, Kind.REC,
-            "Open Picture Mode. If the TV shows its HDR icon or HDR mode names there, HDR is on and the next steps change the HDR settings. Nothing to change here.",
-            "$MENU › Picture Mode", true, "HDR",
-        ),
-        ChecklistItem(
             "H3", "Picture Mode", "HDR Theater", Applies.HDR, Kind.REC,
             "RTINGS used this mode for HDR.",
             "$MENU › Picture Mode", true, "HDR",

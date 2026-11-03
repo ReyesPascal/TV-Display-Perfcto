@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -25,12 +26,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.reyespascal.picturehelper.checklist.ChecklistItem
+import com.reyespascal.picturehelper.checklist.Kind
 import com.reyespascal.picturehelper.checklist.Mark
 import com.reyespascal.picturehelper.checklist.Progress
 import com.reyespascal.picturehelper.checklist.ProgressStore
@@ -80,7 +84,7 @@ fun GuideFlow(
         scene = scene,
         holding = holding,
         tvMenuOpen = tvMenuOpen,
-        menuCard = item?.let { { MenuCard(mode, position, items.size, it) } },
+        menuCard = { MenuCard(mode, items, progress, item) },
         guideFocus = focus,
         guide = { actions ->
             if (item == null) {
@@ -161,31 +165,59 @@ private fun ColumnScope.GuideItem(
     }
 }
 
-/** Shown on the right while the TV menu is open: the setting, the value, where it is and how to move. */
+/**
+ * Shown on the right while the TV menu is open. The guide can't take remote presses then, so instead of
+ * one step it lists everything still to do in this mode: settings to change first, check-only and
+ * "leave it" items after, dimmer. Marked items drop off; the current step is highlighted.
+ */
 @Composable
 private fun ColumnScope.MenuCard(
-    mode: SetupMode, position: Int, total: Int, item: com.reyespascal.picturehelper.checklist.ChecklistItem,
+    mode: SetupMode, items: List<ChecklistItem>, progress: Progress, current: ChecklistItem?,
 ) {
-    Text("${mode.title}  ·  ${position + 1} of $total", fontSize = 13.sp, color = Muted)
-    Text(item.setting, fontSize = 22.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(top = 6.dp))
-    Text(item.value, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-    if (item.note.isNotBlank()) {
-        Text(item.note, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 6.dp))
+    val open = items.filter { progress.marks[it.id] == null }
+    val (change, check) = open.partition { it.kind != Kind.AUTO && it.kind != Kind.DEFAULT }
+    val rows = (change + check).take(MenuCardRows)
+
+    Text("Change these in the TV menu  ·  ${mode.title}", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
+    if (mode == SetupMode.HDR) {
+        Text("HDR is on if Picture Mode starts with \u201cHDR\u201d.", fontSize = 13.sp, color = Muted)
     }
-    Text("Where", fontSize = 13.sp, color = Muted, modifier = Modifier.padding(top = 10.dp))
-    Text(
-        item.where.substringAfter("Square two-line button › ", item.where) +
-            if (item.whereConfirmed) "" else "  (not yet checked on your TV)",
-        fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface,
-    )
-    Text(
-        "Up/Down: move  ·  OK: open or pick  ·  Left/Right: change a number  ·  Back: up a level or close",
-        fontSize = 13.sp, color = Muted, modifier = Modifier.padding(top = 10.dp),
-    )
-    Text("Close the menu when done; the guide comes back to mark it.", fontSize = 13.sp, color = Muted,
-        modifier = Modifier.padding(top = 4.dp))
+    if (rows.isEmpty()) {
+        Text("Everything is marked. Close the menu to see the summary.", fontSize = 15.sp,
+            color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 8.dp))
+    }
+    rows.forEach { row ->
+        val dim = row.kind == Kind.AUTO || row.kind == Kind.DEFAULT
+        val here = row.id == current?.id
+        Column(
+            Modifier.padding(top = 4.dp).fillMaxWidth()
+                .background(if (here) Color(0x26FFD860) else Color.Transparent, RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(row.setting, fontSize = 15.sp, lineHeight = 18.sp, maxLines = 1, modifier = Modifier.weight(1f),
+                    color = if (dim) Muted else MaterialTheme.colorScheme.onSurface)
+                Text(row.value, fontSize = 15.sp, lineHeight = 18.sp, maxLines = 1, fontWeight = FontWeight.Bold,
+                    color = if (dim) Muted else MaterialTheme.colorScheme.primary)
+            }
+            // One line per path; "Picture ›" is implied because the card sits beside the Picture menu.
+            Text(
+                row.where.substringAfter("Square two-line button › Picture › ", row.where.substringAfter("Square two-line button › ")),
+                fontSize = 12.sp, lineHeight = 14.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+    if (open.size > rows.size) {
+        Text("+ ${open.size - rows.size} more after you mark these", fontSize = 12.sp, color = Muted,
+            modifier = Modifier.padding(top = 6.dp))
+    }
+    Text("Up/Down move · OK open · Left/Right change a number · Back closes", fontSize = 12.sp, lineHeight = 14.sp,
+        color = Muted, modifier = Modifier.padding(top = 8.dp))
+    Text("Close the menu when done, then mark each one.", fontSize = 12.sp, lineHeight = 14.sp, color = Muted)
 }
+
+/** Rows that fit the 540 dp TV canvas without crowding. */
+private const val MenuCardRows = 8
 
 @Composable
 private fun ProgressBar(fraction: Float, modifier: Modifier) {

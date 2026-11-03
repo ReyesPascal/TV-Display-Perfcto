@@ -15,7 +15,7 @@ enum class Scene(val label: String, val positionMs: Long?, val shows: String) {
 
 object SceneFor {
     private val map = mapOf(
-        "H1" to Scene.MOVING, "H3" to Scene.FACE, "H2" to Scene.SKY, "H4" to Scene.FACE, "H5" to Scene.MOVING,
+        "H3" to Scene.FACE, "H2" to Scene.SKY, "H4" to Scene.FACE, "H5" to Scene.MOVING,
         "S1" to Scene.FACE, "S2" to Scene.SKY, "S3" to Scene.SHADOWS, "S4" to Scene.SKY,
         "S5" to Scene.SHADOWS, "S6" to Scene.SHADOWS, "S7" to Scene.COLOUR, "S8" to Scene.FACE,
         "S9" to Scene.DETAIL, "S10" to Scene.DETAIL, "S11" to Scene.FACE, "S12" to Scene.DETAIL,
