@@ -38,3 +38,17 @@ can be used, and walks through the RTINGS U6H settings. Full spec: [SPEC.md](SPE
   decoder starts on a placeholder surface; moving it later switches the buffer format (logcat `SurfaceUtils … color
   0x13` → `0x15`), SurfaceFlinger falls back to CLIENT composition and the TV leaves HDR. Prepare in
   `onSurfaceSizeChanged`. Quick check: `dumpsys SurfaceFlinger` video layer must be DEVICE.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in this repo's GitHub Issues (via the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
